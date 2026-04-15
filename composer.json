@@ -1,0 +1,13 @@
+{
+  "name": "campusmart/campusmart-php",
+  "description": "CampusMart — PHP student marketplace",
+  "type": "project",
+  "require": {
+    "php": ">=8.0",
+    "phpmailer/phpmailer": "^6.10"
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "sort-packages": true
+  }
+}

@@ -1,0 +1,18 @@
+Options -Indexes
+
+# Prevent execution of PHP files in uploads directory (Apache 2.4+)
+<FilesMatch "\.(php|php[0-9]?|phtml)$">
+    Require all denied
+</FilesMatch>
+
+# Serve common image formats (including .jfif)
+<FilesMatch "\.(jpe?g|jfif|png|gif|webp)$">
+    Require all granted
+</FilesMatch>
+
+<IfModule mod_mime.c>
+    AddType image/jpeg .jpg .jpeg .jpe .jfif
+    AddType image/png  .png
+    AddType image/gif  .gif
+    AddType image/webp .webp
+</IfModule>

@@ -1,0 +1,39 @@
+Options -Indexes
+
+# ── Security headers ──────────────────────────────────────
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# ── Block access to sensitive files ───────────────────────
+<FilesMatch "\.(sql|md|env|log|sh|json)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+<Files "config.php">
+    Order allow,deny
+    Deny from all
+</Files>
+
+# ── Protect includes directory ─────────────────────────────
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Block direct access to includes
+    RewriteRule ^includes/ - [F,L]
+
+    # Redirect http to https (uncomment for production)
+    # RewriteCond %{HTTPS} off
+    # RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# ── PHP settings ──────────────────────────────────────────
+<IfModule mod_php.c>
+    php_flag display_errors Off
+    php_value upload_max_filesize 5M
+    php_value post_max_size 10M
+</IfModule>
