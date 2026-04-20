@@ -1,15 +1,19 @@
 <?php
 require_once __DIR__ . '/../includes/bootstrap.php';
+// Loads config, DB, auth helpers, session, and shared utilities.
 
-if (isLoggedIn()) redirect('/index.php');
+if (isLoggedIn()) redirect('/index.php'); // Already signed in; go back to browse.
 
+// Validation errors and sticky form values (so the form stays filled on error).
 $errors = [];
 $form   = ['full_name'=>'','email'=>'','student_id'=>'','course'=>'','year_of_study'=>'1','phone'=>''];
 
+// Handle registration form submit.
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
         $errors[] = 'Invalid form submission.';
     } else {
+        // Read and normalize inputs.
         $form['full_name']     = trim($_POST['full_name']     ?? '');
     $form['email']         = strtolower(trim($_POST['email'] ?? ''));
         $form['student_id']    = strtoupper(trim($_POST['student_id'] ?? ''));
@@ -18,6 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $form['phone']         = trim($_POST['phone']         ?? '');
         $password              = $_POST['password']           ?? '';
 
+    // Validate inputs.
     if (!$form['full_name']) {
       $errors[] = 'Full name is required.';
     } elseif (mb_strlen($form['full_name']) > 100) {
@@ -64,6 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $errors[] = 'Password must be at least 6 characters.';
     }
 
+        // If validation passed, ensure email is unique then create the account.
         if (!$errors) {
           $existing = Database::fetchOne('SELECT id FROM users WHERE email = ? LIMIT 1', [$form['email']]);
           if ($existing) {
@@ -84,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               sendWelcomeEmail($form['email'], $form['full_name']);
 
               sessionLogin($id);
-              flash('success', 'Welcome to CampusMart! 🎉');
+              flash('success', 'Welcome to CampusMart! ');
               redirect('/index.php');
             } catch (PDOException $e) {
               // Friendly messages for common unique constraint violations.
@@ -108,7 +114,7 @@ include __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="auth-wrap auth-bg" style="--auth-bg-image: url('<?= APP_URL ?>/public/images/login-bg.webp');">
-  <div class="auth-box">
+  <div class="auth-box auth-box-gradient">
     <div class="auth-logo">
       <div class="emoji"></div>
       <h1>Create Account</h1>

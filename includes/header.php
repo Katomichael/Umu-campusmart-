@@ -41,6 +41,7 @@ $isActive = static function (string $targetPath) use ($currentPath, $endsWithPat
       <div class="nav-left">
         <a href="<?= APP_URL ?>/index.php" class="nav-brand">
           UMU CampusMart
+          <span class="nav-slogan">Buy Smart. Sell Easy. Stay on Campus.</span>
           <span class="nav-sub">UMU</span>
         </a>
         <button class="nav-toggle" type="button" aria-controls="nav-links" aria-expanded="false">Menu</button>

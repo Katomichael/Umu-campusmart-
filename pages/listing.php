@@ -17,8 +17,19 @@ $listing = Database::fetchOne(
 );
 if (!$listing) redirect('/index.php');
 
-// Increment view count
-Database::query('UPDATE listings SET view_count = view_count + 1 WHERE id = ?', [$id]);
+$me = currentUser();
+$isAdmin  = $me && $me['role'] === 'admin';
+$isSeller = $me && $me['id'] == $listing['seller_id'];
+
+// Only approved (active) listings are public.
+if ($listing['status'] !== 'active' && !$isSeller && !$isAdmin) {
+    redirect('/index.php');
+}
+
+// Increment view count (public listings only)
+if ($listing['status'] === 'active' && !$isSeller && !$isAdmin) {
+    Database::query('UPDATE listings SET view_count = view_count + 1 WHERE id = ?', [$id]);
+}
 
 $images = Database::fetchAll(
     'SELECT image_path, is_primary FROM listing_images WHERE listing_id = ? ORDER BY sort_order',
@@ -33,8 +44,6 @@ $reviews = Database::fetchAll(
     [$listing['seller_id']]
 );
 
-$me       = currentUser();
-$isSeller = $me && $me['id'] == $listing['seller_id'];
 $isSaved  = false;
 if ($me) {
     $saved = Database::fetchOne(
@@ -75,13 +84,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $me) {
       }
     } elseif ($action === 'message') {
         $content = trim($_POST['content'] ?? '');
-        if ($content && !$isSeller) {
+        if ($listing['status'] !== 'active') {
+            $actionError = 'This listing is not available for messaging.';
+        } elseif ($content && !$isSeller) {
             Database::insert(
                 'INSERT INTO messages (listing_id, sender_id, receiver_id, content) VALUES (?,?,?,?)',
                 [$id, $me['id'], $listing['seller_id'], $content]
             );
-        header('Location: ' . APP_URL . '/pages/messages.php?listing=' . $id . '&with=' . $listing['seller_id']);
-        exit;
+            header('Location: ' . APP_URL . '/pages/messages.php?listing=' . $id . '&with=' . $listing['seller_id']);
+            exit;
         }
     } elseif ($action === 'save') {
         if ($isSaved) {
@@ -206,7 +217,7 @@ include __DIR__ . '/../includes/header.php';
               <?= csrfField() ?>
               <input type="hidden" name="action" value="save">
               <button type="submit" class="btn btn-outline btn-full">
-                <?= $isSaved ? '❤️ Saved' : '🤍 Save Listing' ?>
+                <?= $isSaved ? '❤️ Saved' : 'Save Listing' ?>
               </button>
             </form>
           <?php endif; ?>
@@ -266,7 +277,7 @@ include __DIR__ . '/../includes/header.php';
       <?php if ($me && !$isSeller): ?>
         <button class="btn btn-ghost btn-sm" style="color:var(--muted);background:transparent;border:none;text-decoration:underline;cursor:pointer;font-size:13px"
                 data-modal-open="modal-report">
-          🚩 Report this listing
+           Report this listing
         </button>
       <?php endif; ?>
     </div>

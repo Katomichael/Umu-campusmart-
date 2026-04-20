@@ -92,19 +92,61 @@ document.addEventListener('DOMContentLoaded', () => {
   const tabBtns = document.querySelectorAll('.tab-btn');
   const tabPanes = document.querySelectorAll('.tab-pane');
 
+  const activateTab = (tabName) => {
+    if (!tabName) return false;
+
+    const btn = Array.from(tabBtns).find(b => b.dataset.tab === tabName);
+    if (!btn) return false;
+
+    tabBtns.forEach(b => b.classList.remove('active'));
+    tabPanes.forEach(p => p.style.display = 'none');
+
+    btn.classList.add('active');
+    const target = document.getElementById('tab-' + tabName);
+    if (target) target.style.display = 'block';
+
+    // Persist selection per page (so refresh keeps the same admin tab).
+    const storageKey = 'campusmart.activeTab:' + window.location.pathname;
+    try { window.localStorage.setItem(storageKey, tabName); } catch (e) {}
+
+    // Keep tab in URL (so reload / sharing the link preserves the tab).
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tabName);
+      window.history.replaceState(null, '', url.toString());
+    } catch (e) {}
+
+    return true;
+  };
+
+  const getPreferredTab = () => {
+    try {
+      const url = new URL(window.location.href);
+      const qTab = url.searchParams.get('tab');
+      if (qTab) return qTab;
+    } catch (e) {}
+
+    const hash = (window.location.hash || '').replace(/^#/, '');
+    if (hash) {
+      if (hash.startsWith('tab-')) return hash.slice(4);
+      return hash;
+    }
+
+    const storageKey = 'campusmart.activeTab:' + window.location.pathname;
+    try { return window.localStorage.getItem(storageKey) || ''; } catch (e) { return ''; }
+  };
+
   tabBtns.forEach(btn => {
     btn.addEventListener('click', () => {
-      tabBtns.forEach(b => b.classList.remove('active'));
-      tabPanes.forEach(p => p.style.display = 'none');
-      btn.classList.add('active');
-      const target = document.getElementById('tab-' + btn.dataset.tab);
-      if (target) target.style.display = 'block';
+      activateTab(btn.dataset.tab);
     });
   });
 
-  // Show first tab by default
   if (tabBtns.length) {
-    tabBtns[0].click();
+    const preferred = getPreferredTab();
+    if (!preferred || !activateTab(preferred)) {
+      activateTab(tabBtns[0].dataset.tab);
+    }
   }
 
   // ── Modal helpers ────────────────────────────────────────

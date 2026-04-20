@@ -6,10 +6,10 @@ requireLogin();
 $id = (int)($_GET['id'] ?? 0);
 if (!$id) redirect('/index.php');
 
-// Verify ownership
+// Verify ownership (admins can edit any listing)
 $me = currentUser();
 $listing = Database::fetchOne('SELECT seller_id FROM listings WHERE id = ?', [$id]);
-if (!$listing || $listing['seller_id'] != $me['id']) redirect('/index.php');
+if (!$listing || ($listing['seller_id'] != $me['id'] && !isAdmin())) redirect('/index.php');
 
 // Forward to create_listing with edit mode
 header('Location: ' . APP_URL . '/pages/create_listing.php?id=' . $id);

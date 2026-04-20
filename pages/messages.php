@@ -10,12 +10,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     $listingId  = (int)($_POST['listing_id']  ?? 0);
     $receiverId = (int)($_POST['receiver_id'] ?? 0);
 
-    if ($content && $listingId && $receiverId && $receiverId !== $me['id']) {
-        Database::insert(
-            'INSERT INTO messages (listing_id, sender_id, receiver_id, content) VALUES (?,?,?,?)',
-            [$listingId, $me['id'], $receiverId, $content]
-        );
+    if ($content && $listingId && $receiverId && $receiverId !== (int)$me['id']) {
+        $listingRow = Database::fetchOne('SELECT id, seller_id, status FROM listings WHERE id=?', [$listingId]);
+        if (!$listingRow) {
+            flash('error', 'Conversation not found.');
+        } elseif ($listingRow['status'] !== 'active') {
+            flash('error', 'Messaging is only available for active listings.');
+        } else {
+            $sellerId = (int)$listingRow['seller_id'];
+
+            // Prevent using a listing as a “cover” to message arbitrary users.
+            $onePartyIsSeller = ((int)$me['id'] === $sellerId) || ($receiverId === $sellerId);
+
+            $hasExisting = Database::fetchOne(
+                'SELECT 1 FROM messages WHERE listing_id=? AND ((sender_id=? AND receiver_id=?) OR (sender_id=? AND receiver_id=?)) LIMIT 1',
+                [$listingId, (int)$me['id'], $receiverId, $receiverId, (int)$me['id']]
+            );
+
+            $allowed = false;
+            if ($onePartyIsSeller) {
+                if ((int)$me['id'] !== $sellerId) {
+                    // Buyer can only message the seller.
+                    $allowed = ($receiverId === $sellerId);
+                } else {
+                    // Seller can only reply where a thread already exists.
+                    $allowed = (bool)$hasExisting;
+                }
+            }
+
+            if ($allowed) {
+                Database::insert(
+                    'INSERT INTO messages (listing_id, sender_id, receiver_id, content) VALUES (?,?,?,?)',
+                    [$listingId, (int)$me['id'], $receiverId, $content]
+                );
+            } else {
+                flash('error', 'You are not allowed to message for this listing.');
+            }
+        }
     }
+
     // Redirect to same conversation
     header('Location: ' . APP_URL . '/pages/messages.php?listing=' . $listingId . '&with=' . $receiverId);
     exit;
@@ -26,6 +59,7 @@ $activeListing  = (int)($_GET['listing'] ?? 0);
 $activeWith     = (int)($_GET['with']    ?? 0);
 
 $conversationError = '';
+$sendError = getFlash('error');
 
 // Validate active conversation so users can't open arbitrary chats via URL.
 if ($activeListing && $activeWith) {
@@ -110,6 +144,12 @@ include __DIR__ . '/../includes/header.php';
 <style>
   .main-content { padding: 0 !important; }
 </style>
+
+<?php if ($sendError): ?>
+  <div class="alert alert-danger" style="margin:16px">
+    <?= e($sendError) ?>
+  </div>
+<?php endif; ?>
 
 <div class="messages-layout">
 

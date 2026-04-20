@@ -80,7 +80,11 @@ $listings = Database::fetchAll(
 );
 
 // Categories for sidebar
-$categories = Database::fetchAll('SELECT * FROM categories ORDER BY name');
+try {
+    $categories = Database::fetchAll('SELECT * FROM categories ORDER BY sort_order, name');
+} catch (Throwable $e) {
+    $categories = Database::fetchAll('SELECT * FROM categories ORDER BY name');
+}
 
 $pageTitle = 'Browse Listings';
 include __DIR__ . '/includes/header.php';
@@ -246,13 +250,14 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
 }
 
 .category-list a.active {
-    background: #e8f0ff;
-    color: #667eea;
-    font-weight: 600;
+    background: rgba(151, 14, 14, 0.12);
+    color: var(--primary);
+    font-weight: 700;
+    border: 1px solid rgba(151, 14, 14, 0.22);
 }
 
 .category-list a.active i {
-    color: #667eea;
+    color: var(--primary);
 }
 
 .price-filter {
@@ -293,6 +298,10 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
     display: flex;
     align-items: center;
     gap: 10px;
+}
+
+.buy-now {
+  color: var(--primary);
 }
 
 .content-header h2 i {
@@ -370,12 +379,34 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
     width: 100%;
     height: 140px;
     background: #e9ecef;
+  position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 40px;
     overflow: hidden;
     color: #999;
+}
+
+.featured-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #1a1f2e;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .2px;
+  box-shadow: 0 8px 18px rgba(0,0,0,0.18);
+}
+
+.listing-card.is-featured {
+  border-color: rgba(245,166,35,.55);
 }
 
 .listing-card-img img {
@@ -662,8 +693,12 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
           <i class="fas fa-list"></i> Categories
         </button>
         <h2>
-          <i class="fas fa-shopping-bag"></i>
-          <?= $catSlug ? getCategoryName($catSlug, $categories) : 'BUY NOW' ?>
+          <?php if ($catSlug): ?>
+            <i class="fas fa-shopping-bag"></i>
+            <?= getCategoryName($catSlug, $categories) ?>
+          <?php else: ?>
+            <span class="buy-now">   BUY NOW</span>
+          <?php endif; ?>
         </h2>
 
         <form method="GET" class="quick-search">
@@ -693,8 +728,12 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
       <?php else: ?>
         <div class="listings-grid">
           <?php foreach ($listings as $l): ?>
-            <a href="<?= APP_URL ?>/pages/listing.php?id=<?= $l['id'] ?>" class="listing-card">
+            <?php $isFeatured = !empty($l['is_featured']); ?>
+            <a href="<?= APP_URL ?>/pages/listing.php?id=<?= $l['id'] ?>" class="listing-card <?= $isFeatured ? 'is-featured' : '' ?>">
               <div class="listing-card-img">
+                <?php if ($isFeatured): ?>
+                  <div class="featured-badge"><i class="fas fa-bolt"></i> Featured</div>
+                <?php endif; ?>
                 <?php if ($l['img']): ?>
                   <img src="<?= APP_URL.'/public/'.e($l['img']) ?>" alt="<?= e($l['title']) ?>">
                 <?php else: ?>

@@ -83,11 +83,6 @@ include __DIR__ . '/../includes/header.php';
       <?php if ($user['bio']): ?>
         <p style="font-size:14px;margin-bottom:8px"><?= e($user['bio']) ?></p>
       <?php endif; ?>
-      <div class="flex-gap">
-        <span class="stars"><?= stars($user['trust_score']) ?></span>
-        <strong><?= $user['trust_score'] ?></strong>
-        <span class="text-muted" style="font-size:13px">(<?= $user['total_reviews'] ?> reviews)</span>
-      </div>
     </div>
   </div>
 

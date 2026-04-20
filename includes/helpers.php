@@ -212,3 +212,20 @@ function sendWelcomeEmail(string $email, string $fullName): bool {
 
     return sendEmail($email, $subject, $html, $text);
 }
+
+function adminAuditLog(string $action, ?string $entityType = null, ?int $entityId = null, array $meta = []): void {
+    $me = currentUser();
+    if (!$me || ($me['role'] ?? '') !== 'admin') return;
+
+    $ip = (string)($_SERVER['REMOTE_ADDR'] ?? '');
+    $metaJson = $meta ? json_encode($meta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null;
+
+    try {
+        Database::insert(
+            'INSERT INTO admin_audit_logs (admin_id, action, entity_type, entity_id, meta, ip_address) VALUES (?,?,?,?,?,?)',
+            [(int)$me['id'], $action, $entityType, $entityId, $metaJson, $ip ?: null]
+        );
+    } catch (Throwable $e) {
+        // Best-effort only (e.g. table not migrated yet).
+    }
+}

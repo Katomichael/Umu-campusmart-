@@ -12,12 +12,16 @@ $form     = ['title'=>'','description'=>'','price'=>'','category_id'=>'','condit
 // Load existing listing for edit
 if ($isEdit) {
     $listing = Database::fetchOne('SELECT * FROM listings WHERE id = ?', [$editId]);
-    if (!$listing || $listing['seller_id'] != $me['id']) redirect('/index.php');
+    if (!$listing || ($listing['seller_id'] != $me['id'] && !isAdmin())) redirect('/index.php');
     $form = array_intersect_key($listing, $form);
 }
 
 // Categories
-$categories = Database::fetchAll('SELECT * FROM categories ORDER BY name');
+try {
+    $categories = Database::fetchAll('SELECT * FROM categories ORDER BY sort_order, name');
+} catch (Throwable $e) {
+    $categories = Database::fetchAll('SELECT * FROM categories ORDER BY name');
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
@@ -47,10 +51,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect('/pages/listing.php?id=' . $editId);
             } else {
                 $newId = Database::insert(
-                    'INSERT INTO listings (seller_id, category_id, title, description, price, condition_type, location)
-                     VALUES (?,?,?,?,?,?,?)',
+                    'INSERT INTO listings (seller_id, category_id, title, description, price, condition_type, location, status)
+                     VALUES (?,?,?,?,?,?,?,?)',
                     [$me['id'], $form['category_id'], $form['title'], $form['description'],
-                     $form['price'], $form['condition_type'], $form['location']]
+                     $form['price'], $form['condition_type'], $form['location'], 'pending']
                 );
 
                 // Handle uploaded images
@@ -76,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
-                flash('success', 'Listing published! ');
+                flash('success', 'Listing submitted for review. It will appear on the home page after approval.');
                 redirect('/pages/listing.php?id=' . $newId);
             }
         }
