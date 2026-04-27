@@ -109,8 +109,8 @@ foreach ($listings as $i => [$title, $slug, $price, $condition, $description]) {
     $isFeatured = ($i % 7 === 0) ? 1 : 0;
 
     Database::insert(
-        'INSERT INTO listings (seller_id, category_id, title, description, price, condition_type, status, is_featured) VALUES (?,?,?,?,?,?,"active",?)',
-        [$sellerId, $categoryId, $title, $description, $price, $condition, $isFeatured]
+        'INSERT INTO listings (seller_id, category_id, title, description, price, condition_type, status, is_featured) VALUES (?,?,?,?,?,?,?,?)',
+        [$sellerId, $categoryId, $title, $description, $price, $condition, 'active', $isFeatured]
     );
 
     $inserted++;

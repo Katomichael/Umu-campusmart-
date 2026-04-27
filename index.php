@@ -15,8 +15,8 @@ $sort     = $_GET['sort']          ?? 'newest';
 $page     = max(1, (int)($_GET['page'] ?? 1));
 
 // ── Build query ───────────────────────────────────
-$where  = ['l.status = "active"'];
-$params = [];
+$where  = ['l.status = ?'];
+$params = ['active'];
 
 if ($search) {
   // FULLTEXT may ignore very short tokens depending on MySQL config; fall back to LIKE.

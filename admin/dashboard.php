@@ -4,21 +4,21 @@ requireAdmin();
 
 // Stats
 $stats = [
-    'students'  => Database::fetchOne('SELECT COUNT(*) AS n FROM users WHERE role="student"')['n'],
+  'students'  => Database::fetchOne('SELECT COUNT(*) AS n FROM users WHERE role=?', ['student'])['n'],
     'listings'  => Database::fetchOne('SELECT COUNT(*) AS n FROM listings')['n'],
-    'pending'   => Database::fetchOne('SELECT COUNT(*) AS n FROM listings WHERE status="pending"')['n'],
-    'active'    => Database::fetchOne('SELECT COUNT(*) AS n FROM listings WHERE status="active"')['n'],
+  'pending'   => Database::fetchOne('SELECT COUNT(*) AS n FROM listings WHERE status=?', ['pending'])['n'],
+  'active'    => Database::fetchOne('SELECT COUNT(*) AS n FROM listings WHERE status=?', ['active'])['n'],
     'messages'  => Database::fetchOne('SELECT COUNT(*) AS n FROM messages')['n'],
-    'reports'   => Database::fetchOne('SELECT COUNT(*) AS n FROM reports WHERE status="pending"')['n'],
+  'reports'   => Database::fetchOne('SELECT COUNT(*) AS n FROM reports WHERE status=?', ['pending'])['n'],
 ];
 
 $userQ = trim($_GET['user_q'] ?? '');
-$userWhere  = 'role="student"';
-$userParams = [];
+$userWhere  = 'role=?';
+$userParams = ['student'];
 if ($userQ !== '') {
   $userWhere .= ' AND (full_name LIKE ? OR email LIKE ? OR student_id LIKE ?)';
   $like = '%' . $userQ . '%';
-  $userParams = [$like, $like, $like];
+  array_push($userParams, $like, $like, $like);
 }
 
 $recentUsers = Database::fetchAll(
@@ -139,7 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
           }
 
           // Delete user (cascades will remove dependent rows)
-          Database::query('DELETE FROM users WHERE id=? AND role="student"', [$uid]);
+          Database::query('DELETE FROM users WHERE id=? AND role=?', [$uid, 'student']);
           adminAuditLog('user.delete', 'user', $uid);
 
           // Best-effort file cleanup under UPLOAD_DIR only.
@@ -162,20 +162,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
           $target = Database::fetchOne('SELECT id, role, is_verified FROM users WHERE id=?', [$uid]);
           if ($target && $target['role'] === 'student') {
             $new = $target['is_verified'] ? 0 : 1;
-            Database::query('UPDATE users SET is_verified=? WHERE id=? AND role="student"', [$new, $uid]);
+            Database::query('UPDATE users SET is_verified=? WHERE id=? AND role=?', [$new, $uid, 'student']);
             adminAuditLog($new ? 'user.verify' : 'user.unverify', 'user', $uid);
           }
         }
     } elseif ($action === 'approve_listing') {
         $lid = (int)($_POST['listing_id'] ?? 0);
         if ($lid) {
-          Database::query('UPDATE listings SET status="active" WHERE id=? AND status IN ("pending","rejected")', [$lid]);
+          Database::query(
+            'UPDATE listings SET status=? WHERE id=? AND status IN (?,?)',
+            ['active', $lid, 'pending', 'rejected']
+          );
           adminAuditLog('listing.approve', 'listing', $lid);
         }
     } elseif ($action === 'reject_listing') {
         $lid = (int)($_POST['listing_id'] ?? 0);
         if ($lid) {
-          Database::query('UPDATE listings SET status="rejected" WHERE id=? AND status="pending"', [$lid]);
+          Database::query('UPDATE listings SET status=? WHERE id=? AND status=?', ['rejected', $lid, 'pending']);
           adminAuditLog('listing.reject', 'listing', $lid);
         }
     } elseif ($action === 'create_category') {
@@ -236,7 +239,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         }
     } elseif ($action === 'remove_listing') {
         $lid = (int)$_POST['listing_id'];
-        Database::query('UPDATE listings SET status="removed" WHERE id=?', [$lid]);
+      Database::query('UPDATE listings SET status=? WHERE id=?', ['removed', $lid]);
         adminAuditLog('listing.remove', 'listing', $lid);
     } elseif ($action === 'feature_listing') {
         $lid     = (int)$_POST['listing_id'];

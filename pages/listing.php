@@ -90,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $me) {
       } elseif ($listing['status'] !== 'active') {
         $actionError = 'This listing is already not active.';
       } else {
-        Database::query('UPDATE listings SET status="sold" WHERE id=? AND seller_id=?', [$id, $me['id']]);
+        Database::query('UPDATE listings SET status=? WHERE id=? AND seller_id=?', ['sold', $id, $me['id']]);
         flash('success', 'Marked as sold. It will no longer appear on the home page.');
         redirect('/pages/listing.php?id=' . $id);
       }
@@ -100,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $me) {
       } elseif ($listing['status'] !== 'sold') {
         $actionError = 'Only sold listings can be restored.';
       } else {
-        Database::query('UPDATE listings SET status="active" WHERE id=? AND seller_id=?', [$id, $me['id']]);
+        Database::query('UPDATE listings SET status=? WHERE id=? AND seller_id=?', ['active', $id, $me['id']]);
         flash('success', 'Listing restored and visible on the home page again.');
         redirect('/pages/listing.php?id=' . $id);
       }

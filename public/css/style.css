@@ -496,9 +496,9 @@ textarea.form-control { resize: vertical; min-height: 100px; }
   min-width: 28px;
   height: 28px;
   padding: 0 8px;
-  background: #e8e8e8;
-  color: #666;
-  border-radius: 6px;
+  background: var(--border);
+  color: var(--muted);
+  border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
   flex-shrink: 0;

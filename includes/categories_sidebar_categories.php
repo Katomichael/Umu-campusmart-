@@ -25,7 +25,10 @@ if (!isset($categories) || !is_array($categories)) {
 $categoryCounts = [];
 $allItemsCount = 0;
 try {
-  $counts = Database::fetchAll('SELECT category_id, COUNT(*) AS count FROM listings WHERE status = "active" GROUP BY category_id');
+  $counts = Database::fetchAll(
+    'SELECT category_id, COUNT(*) AS count FROM listings WHERE status = ? GROUP BY category_id',
+    ['active']
+  );
   foreach ($counts as $row) {
     $categoryCounts[(int)$row['category_id']] = (int)$row['count'];
     $allItemsCount += (int)$row['count'];
