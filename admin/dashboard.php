@@ -109,6 +109,19 @@ $pendingReports = Database::fetchAll(
      ORDER BY r.created_at DESC"
 );
 
+$allReviews = Database::fetchAll(
+    "SELECT r.*,
+            reviewer.full_name AS reviewer_name,
+            reviewed.full_name AS reviewed_name,
+            l.title AS listing_title
+     FROM reviews r
+     JOIN users reviewer ON r.reviewer_id=reviewer.id
+     JOIN users reviewed ON r.reviewed_id=reviewed.id
+     LEFT JOIN listings l ON r.listing_id=l.id
+     ORDER BY r.created_at DESC
+     LIMIT 100"
+);
+
 // Handle admin actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     $action = $_POST['action'] ?? '';
@@ -729,6 +742,9 @@ tbody tr:last-child td {
         <i class="fas fa-flag"></i> Reports
         <?php if ($stats['reports'] > 0): ?><span class="tab-btn-badge"><?= $stats['reports'] ?></span><?php endif; ?>
       </button>
+      <button class="tab-btn" data-tab="reviews">
+        <i class="fas fa-star"></i> Reviews
+      </button>
       <button class="tab-btn" data-tab="audit">
         <i class="fas fa-history"></i> Audit Log
       </button>
@@ -1106,6 +1122,55 @@ tbody tr:last-child td {
                   </form>
 
                 </td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    <?php endif; ?>
+  </div>
+
+  <!-- Reviews tab -->
+  <div id="tab-reviews" class="tab-pane">
+    <?php if (empty($allReviews)): ?>
+      <div class="empty-state">
+        <div class="empty-icon"></div>
+        <h3>No reviews yet</h3>
+        <p>Reviews from users will appear here</p>
+      </div>
+    <?php else: ?>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Reviewer</th><th>Reviewed User</th><th>Listing</th><th>Rating</th><th>Comment</th><th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($allReviews as $rev): ?>
+              <tr>
+                <td><?= e($rev['reviewer_name']) ?></td>
+                <td><?= e($rev['reviewed_name']) ?></td>
+                <td style="font-size:12px;max-width:180px">
+                  <?php if ($rev['listing_title']): ?>
+                    <a href="<?= APP_URL ?>/pages/listing.php?id=<?= (int)$rev['listing_id'] ?>" target="_blank" style="color:var(--primary);text-decoration:none;font-weight:600">
+                      <?= e(mb_strimwidth($rev['listing_title'], 0, 40, '…')) ?>
+                    </a>
+                  <?php else: ?>
+                    —
+                  <?php endif; ?>
+                </td>
+                <td>
+                  <span style="font-size:14px;color:var(--accent);font-weight:700">
+                    <?php for ($i = 0; $i < $rev['rating']; $i++): ?>
+                      ⭐
+                    <?php endfor; ?>
+                  </span>
+                </td>
+                <td style="font-size:12px;max-width:220px;color:var(--muted)">
+                  <?= e(mb_strimwidth($rev['comment'] ?? '—', 0, 60, '…')) ?>
+                </td>
+                <td style="font-size:12px"><?= timeAgo($rev['created_at']) ?></td>
               </tr>
             <?php endforeach; ?>
           </tbody>
