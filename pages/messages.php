@@ -225,10 +225,18 @@ include __DIR__ . '/../includes/header.php';
   /* Message Bubbles */
   .chat-bubble-wrap {
     display: flex;
-    gap: 8px;
+    gap: 10px;
     align-items: flex-end;
-    margin: 12px 0;
+    margin: 8px 0;
     animation: messageSlide 0.3s ease;
+  }
+  
+  .chat-bubble-wrap + .chat-bubble-wrap.them {
+    margin-top: 4px;
+  }
+  
+  .chat-bubble-wrap + .chat-bubble-wrap.me {
+    margin-top: 12px;
   }
   
   .chat-bubble-avatar {
@@ -269,31 +277,43 @@ include __DIR__ . '/../includes/header.php';
   }
   
   .chat-bubble-content {
-    max-width: 65%;
-    padding: 11px 14px;
-    border-radius: 14px;
+    max-width: 85%;
+    padding: 12px 16px;
+    border-radius: 12px;
     font-size: 14px;
-    line-height: 1.4;
+    line-height: 1.6;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
   }
   
   .chat-bubble-wrap.them .chat-bubble-content {
     background: var(--surface);
     box-shadow: var(--shadow);
-    border-radius: 14px 14px 14px 4px;
+    border-radius: 12px 12px 12px 4px;
     color: var(--text);
   }
   
   .chat-bubble-wrap.me .chat-bubble-content {
     background: var(--primary);
     color: #fff;
-    border-radius: 14px 14px 4px 14px;
+    border-radius: 12px 12px 4px 12px;
   }
   
   .chat-time {
     font-size: 11px;
-    opacity: .7;
-    margin-top: 4px;
+    opacity: .6;
+    margin-top: 5px;
     padding: 0 4px;
+  }
+  
+  .chat-bubble-sender {
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    padding: 0 4px;
+    color: var(--text);
+    opacity: .8;
   }
   
   @keyframes messageSlide {
@@ -309,7 +329,14 @@ include __DIR__ . '/../includes/header.php';
   
   /* Chat Messages Area */
   .chat-messages {
-    padding: 20px;
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  
+  .chat-messages .text-muted {
+    opacity: .5;
   }
   
   /* Chat Header */
@@ -382,6 +409,29 @@ include __DIR__ . '/../includes/header.php';
     display: flex;
     gap: 8px;
     align-items: center;
+  }
+  
+  @media (max-width: 768px) {
+    .chat-bubble-content {
+      max-width: 90%;
+      padding: 11px 14px;
+      font-size: 13px;
+    }
+    
+    .chat-messages {
+      padding: 16px 14px;
+    }
+    
+    .chat-bubble-avatar {
+      width: 28px;
+      height: 28px;
+      font-size: 12px;
+    }
+    
+    .chat-bubble-sender {
+      font-size: 11px;
+      margin-bottom: 3px;
+    }
   }
 </style>
 
@@ -491,6 +541,9 @@ include __DIR__ . '/../includes/header.php';
             <?php endif; ?>
             
             <div>
+              <?php if (!$isMe): ?>
+                <div class="chat-bubble-sender"><?= e($msg['sender_name']) ?></div>
+              <?php endif; ?>
               <div class="chat-bubble-content">
                 <?= e($msg['content']) ?>
               </div>
