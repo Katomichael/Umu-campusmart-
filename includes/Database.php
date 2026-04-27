@@ -18,43 +18,39 @@ class Database {
             ];
 
             // --- SSL Logic for Aiven/Render ---
-            // If we are not on localhost, we assume we are online and need SSL
             if (DB_HOST !== '127.0.0.1' && DB_HOST !== 'localhost') {
-                // This is the default path for CA certs on Render's Linux environment
-                $options[PDO::MYSQL_ATTR_SSL_CA] = '/etc/ssl/certs/ca-certificates.crt';
-                // Aiven certificates are trusted by default CA, so we can verify or skip verification if needed
-                $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = false;
+                // We use the numeric value 1007 for PDO::MYSQL_ATTR_SSL_CA to prevent "Undefined constant" errors
+                $options[1007] = '/etc/ssl/certs/ca-certificates.crt';
+                // 1014 is the numeric value for PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT
+                $options[1014] = false;
             }
 
             try {
                 self::$instance = new PDO($dsn, DB_USER, DB_PASS, $options);
             } catch (PDOException $e) {
-                // Return JSON error for AJAX requests or die for standard ones
-                header('Content-Type: application/json');
+                if (!headers_sent()) {
+                    header('Content-Type: application/json');
+                }
                 die(json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]));
             }
         }
         return self::$instance;
     }
 
-    // Execute a query and return the statement
     public static function query(string $sql, array $params = []): PDOStatement {
         $stmt = self::connect()->prepare($sql);
         $stmt->execute($params);
         return $stmt;
     }
 
-    // Fetch all rows
     public static function fetchAll(string $sql, array $params = []): array {
         return self::query($sql, $params)->fetchAll();
     }
 
-    // Fetch a single row
     public static function fetchOne(string $sql, array $params = []): array|false {
         return self::query($sql, $params)->fetch();
     }
 
-    // Insert and return the last insert ID
     public static function insert(string $sql, array $params = []): int {
         self::query($sql, $params);
         return (int) self::connect()->lastInsertId();
