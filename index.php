@@ -781,6 +781,8 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
     .hero-search-wrapper input,
     .hero-search-wrapper button {
         width: 100%;
+        padding: 11px 14px;
+        font-size: 13px;
     }
 
     .hero-categories {
@@ -1197,16 +1199,36 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
 }
 
 @media (max-width: 480px) {
+    .hero-search-wrapper {
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .hero-search-wrapper input {
+        flex: 1;
+        min-width: 100px;
+        padding: 9px 10px;
+        border-radius: 8px;
+        font-size: 12px;
+    }
+
+    .hero-search-wrapper button {
+        padding: 9px 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        gap: 6px;
+    }
+
     .featured-banner {
-        padding: 24px 12px;
-        margin-bottom: 18px;
-        border-radius: 0 0 18px 18px;
-        min-height: 200px;
+        padding: 20px 12px;
+        margin-bottom: 16px;
+        border-radius: 0 0 16px 16px;
+        min-height: 180px;
     }
 
     .featured-banner-content {
-        gap: 16px;
-        padding: 0 10px;
+        gap: 12px;
+        padding: 0 8px;
     }
 
     .featured-banner-info {
@@ -1214,20 +1236,53 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
     }
 
     .featured-banner-info h3 {
-        font-size: 11px;
-        margin-bottom: 8px;
-        padding: 5px 12px;
+        font-size: 10px;
+        margin-bottom: 6px;
+        padding: 4px 10px;
     }
 
     .featured-banner-info h2 {
-        font-size: 24px;
-        margin-bottom: 10px;
-        line-height: 1.2;
+        font-size: 20px;
+        margin-bottom: 8px;
+        line-height: 1.15;
     }
 
     .featured-banner-info p {
+        font-size: 12px;
+        margin-bottom: 10px;
+    }
+
+    .featured-banner-price {
+        margin-bottom: 12px;
+        gap: 8px;
+    }
+
+    .featured-banner-price .current {
+        font-size: 28px;
+    }
+
+    .featured-banner-price .original {
+        font-size: 14px;
+    }
+
+    .featured-banner-price .discount {
+        padding: 6px 12px;
+        font-size: 11px;
+    }
+
+    .featured-banner-btn {
+        padding: 11px 20px;
         font-size: 13px;
-        margin-bottom: 14px;
+        gap: 6px;
+    }
+
+    .featured-banner-image {
+        min-height: 160px;
+    }
+
+    .featured-banner-image img {
+        max-height: 180px;
+    }
     }
 
     .featured-banner-price {
