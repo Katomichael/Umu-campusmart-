@@ -1104,11 +1104,23 @@ tr:last-child td { border-bottom: none; }
 
   /* General layout */
   .browse-layout { flex-direction: column; }
+  .layout-with-sidebar { flex-direction: column; }
   .sidebar { width: 100%; position: static; }
   .results-header { flex-wrap: wrap; gap: 10px; align-items: flex-start; }
   .detail-layout { grid-template-columns: 1fr; }
   .detail-main-img { height: 260px; }
   .listing-card-img { height: 150px; }
+
+  /* Tabs */
+  .tabs {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tab-btn { white-space: nowrap; }
+
+  /* Profile */
+  .profile-header { padding: 20px; gap: 16px; }
 
   /* Forms/auth */
   .form-grid { grid-template-columns: 1fr; }
@@ -1134,8 +1146,18 @@ tr:last-child td { border-bottom: none; }
 @media (max-width: 480px) {
   .nav-brand { font-size: 16px; }
   .nav-sub { display: none; }
+  .nav-slogan { display: none; }
   .btn { padding: 9px 16px; }
   .btn-sm { padding: 6px 12px; }
+
+  .page-title { font-size: 20px; }
+  .page-sub { margin-bottom: 18px; }
+
+  .card-body { padding: 16px; }
+  .modal-box { padding: 18px; }
+
+  .profile-avatar { width: 64px; height: 64px; font-size: 22px; }
+  .profile-name { font-size: 18px; }
 
   .detail-title { font-size: 24px; }
   .detail-price { font-size: 28px; }

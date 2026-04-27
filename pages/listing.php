@@ -580,6 +580,27 @@ include __DIR__ . '/../includes/header.php';
     display: none;
   }
 }
+
+@media (max-width: 480px) {
+  .featured-listing-container { gap: 16px; }
+
+  .featured-listing-thumbs {
+    padding: 10px;
+    gap: 6px;
+  }
+
+  .featured-listing-thumbs .thumb {
+    width: 52px;
+    height: 52px;
+  }
+
+  .listing-detail-meta {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .meta-item { padding: 10px; }
+}
 </style>
 
 <!-- Report Modal -->
