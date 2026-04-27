@@ -254,6 +254,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         $lid = (int)$_POST['listing_id'];
       Database::query('UPDATE listings SET status=? WHERE id=?', ['removed', $lid]);
         adminAuditLog('listing.remove', 'listing', $lid);
+    } elseif ($action === 'restore_listing') {
+        $lid = (int)$_POST['listing_id'];
+        $current = Database::fetchOne('SELECT status FROM listings WHERE id=?', [$lid]);
+        if ($current && $current['status'] === 'removed') {
+            Database::query('UPDATE listings SET status=? WHERE id=?', ['active', $lid]);
+            adminAuditLog('listing.restore', 'listing', $lid);
+        }
     } elseif ($action === 'feature_listing') {
         $lid     = (int)$_POST['listing_id'];
         $current = Database::fetchOne('SELECT is_featured FROM listings WHERE id=?', [$lid]);
@@ -965,6 +972,13 @@ tbody tr:last-child td {
                     <input type="hidden" name="listing_id" value="<?= $l['id'] ?>">
                     <button type="submit" class="btn btn-sm btn-danger"
                             data-confirm="Remove this listing?">Remove</button>
+                  </form>
+                <?php elseif ($l['status'] === 'removed'): ?>
+                  <form method="POST" style="display:inline">
+                    <?= csrfField() ?>
+                    <input type="hidden" name="action"     value="restore_listing">
+                    <input type="hidden" name="listing_id" value="<?= $l['id'] ?>">
+                    <button type="submit" class="btn btn-sm btn-primary">Restore</button>
                   </form>
                 <?php endif; ?>
 
