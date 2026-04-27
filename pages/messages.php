@@ -6,6 +6,31 @@ $me = currentUser();
 
 // Send a message (POST)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    $action = trim($_POST['action'] ?? 'send');
+    
+    if ($action === 'delete_message') {
+        $messageId = (int)($_POST['message_id'] ?? 0);
+        if ($messageId) {
+            $msg = Database::fetchOne('SELECT sender_id, listing_id, receiver_id FROM messages WHERE id=?', [$messageId]);
+            if ($msg && $msg['sender_id'] == $me['id']) {
+                Database::query('DELETE FROM messages WHERE id=?', [$messageId]);
+            }
+        }
+        header('Location: ' . APP_URL . '/pages/messages.php?listing=' . $_POST['listing_id'] . '&with=' . $_POST['receiver_id']);
+        exit;
+    } elseif ($action === 'clear_conversation') {
+        $listingId = (int)($_POST['listing_id'] ?? 0);
+        $receiverId = (int)($_POST['receiver_id'] ?? 0);
+        if ($listingId && $receiverId) {
+            Database::query(
+                'DELETE FROM messages WHERE listing_id=? AND ((sender_id=? AND receiver_id=?) OR (sender_id=? AND receiver_id=?))',
+                [$listingId, $me['id'], $receiverId, $receiverId, $me['id']]
+            );
+        }
+        header('Location: ' . APP_URL . '/pages/messages.php');
+        exit;
+    }
+    
     $content    = trim($_POST['content']     ?? '');
     $listingId  = (int)($_POST['listing_id']  ?? 0);
     $receiverId = (int)($_POST['receiver_id'] ?? 0);
@@ -300,6 +325,33 @@ include __DIR__ . '/../includes/header.php';
     border-radius: 12px 12px 4px 12px;
   }
   
+  .chat-bubble-actions {
+    display: none;
+    margin-top: 4px;
+    padding: 0 4px;
+  }
+  
+  .chat-bubble-wrap:hover .chat-bubble-actions {
+    display: flex;
+    gap: 6px;
+  }
+  
+  .chat-bubble-delete-btn {
+    background: none;
+    border: none;
+    color: var(--danger);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    font-weight: 600;
+  }
+  
+  .chat-bubble-delete-btn:hover {
+    background: rgba(208, 42, 45, 0.1);
+  }
+  
   .chat-time {
     font-size: 11px;
     opacity: .6;
@@ -518,6 +570,15 @@ include __DIR__ . '/../includes/header.php';
                onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none'">
               👁️ View Listing
             </a>
+            <form method="POST" style="display:inline">
+              <?= csrfField() ?>
+              <input type="hidden" name="action" value="clear_conversation">
+              <input type="hidden" name="listing_id" value="<?= (int)$activeListing ?>">
+              <input type="hidden" name="receiver_id" value="<?= (int)$activeWith ?>">
+              <button type="submit" class="btn btn-sm btn-outline" style="font-size:12px" onclick="return confirm('Clear this entire conversation? This cannot be undone.')">
+                <i class="fas fa-trash"></i> Clear Chat
+              </button>
+            </form>
           <?php endif; ?>
         </div>
       </div>
@@ -550,6 +611,20 @@ include __DIR__ . '/../includes/header.php';
               <div class="chat-time">
                 <?= date('g:i A', strtotime($msg['created_at'])) ?>
               </div>
+              <?php if ($isMe): ?>
+                <div class="chat-bubble-actions">
+                  <form method="POST" style="display:inline">
+                    <?= csrfField() ?>
+                    <input type="hidden" name="action" value="delete_message">
+                    <input type="hidden" name="message_id" value="<?= (int)$msg['id'] ?>">
+                    <input type="hidden" name="listing_id" value="<?= (int)$activeListing ?>">
+                    <input type="hidden" name="receiver_id" value="<?= (int)$activeWith ?>">
+                    <button type="submit" class="chat-bubble-delete-btn" title="Delete message" onclick="return confirm('Delete this message?')">
+                      <i class="fas fa-trash"></i> Delete
+                    </button>
+                  </form>
+                </div>
+              <?php endif; ?>
             </div>
             
             <?php if ($isMe): ?>
