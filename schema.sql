@@ -161,6 +161,23 @@ CREATE TABLE IF NOT EXISTS saved_listings (
 ) ENGINE=InnoDB;
 
 -- ------------------------------------------------------------
+-- PASSWORD RESETS
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS password_resets (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  user_id      INT       NOT NULL,
+  token_hash   CHAR(64)  NOT NULL,
+  expires_at   DATETIME  NOT NULL,
+  used_at      DATETIME,
+  created_at   DATETIME  DEFAULT CURRENT_TIMESTAMP,
+  requested_ip VARCHAR(45),
+  requested_ua VARCHAR(255),
+  UNIQUE KEY uq_token (token_hash),
+  INDEX idx_user_created (user_id, created_at),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ------------------------------------------------------------
 -- ADMIN AUDIT LOGS
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS admin_audit_logs (

@@ -6,7 +6,7 @@
     <div class="container footer-inner">
       <div class="footer-grid" aria-label="Footer links">
         <div class="footer-col">
-          <h4>Need help?</h4>
+          <h4>NEED HELP</h4>
           <ul class="footer-links">
             <li><a href="<?= APP_URL ?>/pages/messages.php">Chat with us</a></li>
             <li><a href="<?= APP_URL ?>/pages/about.php#help">Help Center</a></li>
@@ -15,7 +15,7 @@
         </div>
 
         <div class="footer-col">
-          <h4>About</h4>
+          <h4>ABOUT</h4>
           <ul class="footer-links">
             <li><a href="<?= APP_URL ?>/pages/about.php">About us</a></li>
             <li><a href="<?= APP_URL ?>/pages/about.php#about-umu-campusmart">About UMU CampusMart</a></li>

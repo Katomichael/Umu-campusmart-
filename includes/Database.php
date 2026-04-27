@@ -10,13 +10,27 @@ class Database {
                 'mysql:host=%s;port=%s;dbname=%s;charset=%s',
                 DB_HOST, DB_PORT, DB_NAME, DB_CHARSET
             );
+
+            $options = [
+                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES   => false,
+            ];
+
+            // --- SSL Logic for Aiven/Render ---
+            // If we are not on localhost, we assume we are online and need SSL
+            if (DB_HOST !== '127.0.0.1' && DB_HOST !== 'localhost') {
+                // This is the default path for CA certs on Render's Linux environment
+                $options[PDO::MYSQL_ATTR_SSL_CA] = '/etc/ssl/certs/ca-certificates.crt';
+                // Aiven certificates are trusted by default CA, so we can verify or skip verification if needed
+                $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = false;
+            }
+
             try {
-                self::$instance = new PDO($dsn, DB_USER, DB_PASS, [
-                    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                    PDO::ATTR_EMULATE_PREPARES   => false,
-                ]);
+                self::$instance = new PDO($dsn, DB_USER, DB_PASS, $options);
             } catch (PDOException $e) {
+                // Return JSON error for AJAX requests or die for standard ones
+                header('Content-Type: application/json');
                 die(json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]));
             }
         }

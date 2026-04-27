@@ -2,6 +2,25 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
+  // ── Force scroll-to-top after category navigation ───────
+  // Some browsers may restore scroll position on navigation; this makes
+  // category clicks always start at the top of the browse page.
+  try {
+    const shouldScrollTop = window.sessionStorage.getItem('campusmart.scrollTopOnLoad') === '1';
+    if (shouldScrollTop) {
+      window.sessionStorage.removeItem('campusmart.scrollTopOnLoad');
+      // Run twice to win against scroll restoration.
+      requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }));
+      setTimeout(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }), 50);
+    }
+  } catch (e) {}
+
+  document.querySelectorAll('.category-list a').forEach(a => {
+    a.addEventListener('click', () => {
+      try { window.sessionStorage.setItem('campusmart.scrollTopOnLoad', '1'); } catch (e) {}
+    });
+  });
+
   // ── Navbar: mobile menu + user dropdown ─────────────────
   const navbar = document.querySelector('.navbar');
   const navToggle = document.querySelector('.nav-toggle');
@@ -28,6 +47,73 @@ document.addEventListener('DOMContentLoaded', () => {
     navToggle.setAttribute('aria-expanded', String(isOpen));
     if (!isOpen) closeUserMenu();
   });
+
+  // ── Browse: categories sidebar collapse / drawer (home page) ─────────
+  const browseSidebar = document.getElementById('browse-sidebar');
+  const sidebarCollapseBtn = document.getElementById('sidebar-collapse');
+  const sidebarToggleBtn = document.getElementById('sidebar-toggle');
+  const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+  const isSidebarDrawer = () => {
+    try {
+      return window.matchMedia('(max-width: 480px)').matches;
+    } catch (e) {
+      return window.innerWidth <= 480;
+    }
+  };
+
+  const closeSidebarDrawer = () => {
+    document.body.classList.remove('sidebar-open');
+    if (sidebarToggleBtn) sidebarToggleBtn.setAttribute('aria-expanded', 'false');
+  };
+
+  const openSidebarDrawer = () => {
+    document.body.classList.add('sidebar-open');
+    if (sidebarToggleBtn) sidebarToggleBtn.setAttribute('aria-expanded', 'true');
+  };
+
+  const collapseSidebar = () => {
+    document.body.classList.add('sidebar-collapsed');
+    if (sidebarToggleBtn) sidebarToggleBtn.setAttribute('aria-expanded', 'false');
+  };
+
+  const expandSidebar = () => {
+    document.body.classList.remove('sidebar-collapsed');
+    if (sidebarToggleBtn) sidebarToggleBtn.setAttribute('aria-expanded', 'true');
+  };
+
+  if (browseSidebar && (sidebarCollapseBtn || sidebarToggleBtn)) {
+    if (sidebarCollapseBtn) {
+      sidebarCollapseBtn.addEventListener('click', () => {
+        if (isSidebarDrawer()) {
+          closeSidebarDrawer();
+        } else {
+          collapseSidebar();
+        }
+      });
+    }
+
+    if (sidebarToggleBtn) {
+      sidebarToggleBtn.addEventListener('click', () => {
+        if (isSidebarDrawer()) {
+          const isOpen = document.body.classList.contains('sidebar-open');
+          if (isOpen) closeSidebarDrawer();
+          else openSidebarDrawer();
+          closeNavMenu();
+          closeUserMenu();
+        } else {
+          // On desktop/tablet: show categories again when collapsed.
+          expandSidebar();
+        }
+      });
+    }
+
+    if (sidebarOverlay) {
+      sidebarOverlay.addEventListener('click', () => {
+        closeSidebarDrawer();
+      });
+    }
+  }
 
   if (navUserBtn) navUserBtn.addEventListener('click', (e) => {
     e.preventDefault();
@@ -66,6 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Escape') {
       closeNavMenu();
       closeUserMenu();
+      closeSidebarDrawer();
     }
   });
 

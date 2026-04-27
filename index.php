@@ -7,6 +7,7 @@ require_once __DIR__ . '/includes/bootstrap.php';
 // ── Filters from GET ──────────────────────────────
 $search   = trim($_GET['search']   ?? '');
 $catSlug  = trim($_GET['category'] ?? '');
+$subcat   = trim($_GET['subcat']   ?? '');
 $cond     = trim($_GET['condition']?? '');
 $minPrice = (float)($_GET['min']   ?? 0);
 $maxPrice = (float)($_GET['max']   ?? 0);
@@ -31,6 +32,34 @@ if ($search) {
 if ($catSlug) {
     $where[]  = 'c.slug = ?';
     $params[] = $catSlug;
+}
+
+if ($subcat) {
+    $subcatKey = strtolower($subcat);
+    $subcatTermsMap = [
+        'womens-wear' => ['women', 'womens', 'ladies', 'female', 'girl'],
+        'mens-wear'   => ['men', 'mens', 'male', 'gentlemen', 'boy'],
+        'jewellery'   => ['jewellery', 'jewelry', 'necklace', 'ring', 'bracelet', 'earring', 'watch'],
+        'sports-shoes' => ['sports shoe', 'sports shoes', 'cleat', 'cleats', 'boot', 'boots', 'trainer', 'trainers'],
+        'jerseys'      => ['jersey', 'jerseys', 'kit', 'kits', 'uniform', 'uniforms'],
+        'gym-shoes'    => ['gym shoe', 'gym shoes', 'training shoe', 'training shoes', 'running shoe', 'running shoes', 'sneaker', 'sneakers', 'trainer', 'trainers'],
+        'phones-accessories' => ['phone', 'phones', 'smartphone', 'smartphones', 'mobile', 'mobile phone', 'accessory', 'accessories', 'case', 'charger', 'earbud', 'earbuds', 'headphone', 'headphones'],
+        'laptops-computers'   => ['laptop', 'laptops', 'computer', 'computers', 'pc', 'desktop', 'notebook', 'charger', 'ram', 'hard drive', 'ssd'],
+        'tvs-home-audio'      => ['tv', 'tvs', 'television', 'televisions', 'home audio', 'soundbar', 'soundbars', 'speaker', 'speakers', 'subwoofer'],
+        'gaming-consoles'     => ['game', 'games', 'gaming', 'console', 'consoles', 'playstation', 'xbox', 'nintendo', 'controller', 'controllers'],
+        'cameras-photography' => ['camera', 'cameras', 'photography', 'lens', 'lenses', 'tripod', 'dslr', 'mirrorless', 'gopro'],
+        'speakers-headphones' => ['speaker', 'speakers', 'headphone', 'headphones', 'earphone', 'earphones', 'earbud', 'earbuds', 'bluetooth speaker'],
+    ];
+
+    if (isset($subcatTermsMap[$subcatKey])) {
+        $termClauses = [];
+        foreach ($subcatTermsMap[$subcatKey] as $term) {
+            $termClauses[] = '(l.title LIKE ? OR l.description LIKE ?)';
+            $params[] = '%' . $term . '%';
+            $params[] = '%' . $term . '%';
+        }
+        $where[] = '(' . implode(' OR ', $termClauses) . ')';
+    }
 }
 if ($cond) {
     $where[]  = 'l.condition_type = ?';
@@ -62,13 +91,26 @@ $totalRow = Database::fetchOne(
     $params
 );
 $total = (int)($totalRow['n'] ?? 0);
-$pag   = paginate($total, $page, LISTINGS_PER_PAGE, 'index.php?' . http_build_query(array_filter(compact('search','catSlug','cond','minPrice','maxPrice','sort'), fn($v)=>$v!==''&&$v!==0)));
+$pag   = paginate(
+        $total,
+        $page,
+        LISTINGS_PER_PAGE,
+        'index.php?' . http_build_query(array_filter([
+                'search'    => $search,
+                'category'  => $catSlug,
+                'subcat'    => $subcat,
+                'condition' => $cond,
+                'min'       => $minPrice,
+                'max'       => $maxPrice,
+                'sort'      => $sort,
+        ], fn($v)=>$v!==''&&$v!==0))
+    );
 
 // Fetch listings
 $listings = Database::fetchAll(
     "SELECT l.id, l.title, l.price, l.condition_type, l.view_count, l.is_featured, l.created_at,
             c.name AS cat_name, c.slug AS cat_slug,
-            u.id AS seller_id, u.full_name AS seller_name, u.trust_score,
+            u.id AS seller_id, u.full_name AS seller_name, u.trust_score, u.avatar AS seller_avatar,
             (SELECT image_path FROM listing_images WHERE listing_id=l.id AND is_primary=1 LIMIT 1) AS img
      FROM listings l
      JOIN categories c ON l.category_id = c.id
@@ -86,15 +128,140 @@ try {
     $categories = Database::fetchAll('SELECT * FROM categories ORDER BY name');
 }
 
+// Fetch featured products for banner carousel
+$featuredListings = Database::fetchAll(
+    "SELECT l.id, l.title, l.price, l.is_featured,
+            (SELECT image_path FROM listing_images WHERE listing_id=l.id AND is_primary=1 LIMIT 1) AS img
+     FROM listings l
+     WHERE l.status='active' AND l.is_featured=1
+     ORDER BY l.view_count DESC
+     LIMIT 8"
+);
+
 $pageTitle = 'Browse Listings';
 include __DIR__ . '/includes/header.php';
 ?>
 
 <style>
 .index-page {
-    background: #9a1717;
+    background: linear-gradient(135deg, #f4f6f9 0%, #eef2f7 100%);
     min-height: 100vh;
+}
 
+/* ── Hero Section ──────────────────────────────────────────── */
+.hero-section {
+    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 50%, var(--primary-light) 100%);
+    color: #fff;
+    padding: 48px 20px;
+    margin-bottom: 32px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+}
+
+.hero-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.hero-title {
+    font-size: 32px;
+    font-weight: 900;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+}
+
+.hero-subtitle {
+    font-size: 16px;
+    opacity: 0.95;
+    margin-bottom: 28px;
+    font-weight: 400;
+    letter-spacing: 0.3px;
+}
+
+.hero-search-wrapper {
+    display: flex;
+    gap: 12px;
+    max-width: 600px;
+    margin: 0 auto 24px;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: stretch;
+}
+
+.hero-search-wrapper input {
+    flex: 1;
+    min-width: 240px;
+    padding: 14px 18px;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    background: rgba(255,255,255,0.95);
+    color: var(--text);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    transition: all 0.2s ease;
+}
+
+.hero-search-wrapper input::placeholder {
+    color: #999;
+}
+
+.hero-search-wrapper input:focus {
+    outline: none;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    transform: translateY(-2px);
+}
+
+.hero-search-wrapper button {
+    padding: 14px 28px;
+    background: var(--accent);
+    color: var(--text);
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(245,166,35,0.2);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.hero-search-wrapper button:hover {
+    background: #e09520;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(245,166,35,0.3);
+}
+
+.hero-categories {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.hero-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: #fff;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+}
+
+.hero-chip:hover {
+    background: rgba(255,255,255,0.28);
+    border-color: rgba(255,255,255,0.5);
+    transform: translateY(-2px);
 }
 
 .top-nav {
@@ -148,26 +315,37 @@ include __DIR__ . '/includes/header.php';
 }
 
 .sidebar {
-    background: white;
-    border-radius: 8px;
-    padding: 20px;
+    background: var(--surface);
+    border-radius: 14px;
+    padding: 24px;
     height: fit-content;
-    position: sticky;
-    top: 80px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    position: static;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    transition: all 0.2s ease;
+}
+
+.sidebar:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.09);
 }
 
 .sidebar h3 {
     font-size: 12px;
-    font-weight: 700;
-    color: #333;
+    font-weight: 800;
+    color: var(--text);
     margin-bottom: 16px;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.8px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--border);
 }
+
+body.sidebar-collapsed .main-layout { grid-template-columns: 1fr; }
+body.sidebar-collapsed #browse-sidebar { display: none; }
+body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
 
 .sidebar-title {
   display: flex;
@@ -194,9 +372,6 @@ include __DIR__ . '/includes/header.php';
 }
 .sidebar-collapse:hover { background: #f3f3f3; }
 
-body.sidebar-collapsed .main-layout { grid-template-columns: 1fr; }
-body.sidebar-collapsed #browse-sidebar { display: none; }
-body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
 
 .sidebar h3 i {
     color: #667eea;
@@ -204,61 +379,22 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
 }
 
 .sidebar-section {
-    margin-bottom: 20px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid #eee;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 2px solid var(--border);
+}
+
+.sidebar-section:first-of-type {
+    margin-top: 20px;
+    padding-top: 0;
+    border-top: none;
 }
 
 .sidebar-section:last-child {
-    border-bottom: none;
     margin-bottom: 0;
 }
 
-.category-list {
-    list-style: none;
-}
 
-.category-list li {
-    margin-bottom: 8px;
-}
-
-.category-list a {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    color: #666;
-    text-decoration: none;
-    padding: 8px;
-    border-radius: 4px;
-    transition: all 0.2s;
-}
-
-.category-list a i {
-    width: 16px;
-    text-align: center;
-    color: #999;
-}
-
-.category-list a:hover {
-    background: #f0f0f0;
-    color: #333;
-}
-
-.category-list a:hover i {
-    color: #667eea;
-}
-
-.category-list a.active {
-    background: rgba(151, 14, 14, 0.12);
-    color: var(--primary);
-    font-weight: 700;
-    border: 1px solid rgba(151, 14, 14, 0.22);
-}
-
-.category-list a.active i {
-    color: var(--primary);
-}
 
 .price-filter {
     display: flex;
@@ -274,48 +410,63 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
 }
 
 .main-content {
-    background: white;
-    border-radius: 8px;
+    background: var(--surface);
+    border-radius: 14px;
     padding: 0;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    overflow: hidden;
 }
 
 .content-header {
-    padding: 20px 24px;
-    border-bottom: 1px solid #eee;
+    padding: 24px 28px;
+    border-bottom: 1px solid var(--border);
     display: flex;
     justify-content: space-between;
     align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
+    gap: 16px;
+    flex-wrap: wrap;
+    background: linear-gradient(135deg, rgba(151,14,14,0.02) 0%, rgba(245,166,35,0.02) 100%);
 }
 
 .content-header h2 {
-    font-size: 18px;
-    font-weight: 700;
-    color: #333;
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--primary);
     margin: 0;
     display: flex;
     align-items: center;
     gap: 10px;
+    letter-spacing: -0.3px;
 }
 
 .buy-now {
-  color: var(--primary);
+    color: var(--primary);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .content-header h2 i {
-    color: #667eea;
-    font-size: 20px;
+    color: var(--primary);
+    font-size: 22px;
 }
 
 .sort-dropdown {
-    font-size: 13px;
-    padding: 8px 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    background: white;
+    font-size: 14px;
+    padding: 10px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
     cursor: pointer;
+    font-weight: 600;
+    color: var(--text);
+    transition: all 0.2s ease;
+}
+
+.sort-dropdown:hover {
+    border-color: var(--primary);
+    background: linear-gradient(135deg, rgba(151,14,14,0.04) 0%, rgba(245,166,35,0.04) 100%);
 }
 
 .quick-search {
@@ -327,59 +478,79 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
 }
 
 .quick-search input {
-  width: 100%;
-  max-width: 520px;
-  padding: 9px 12px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 13px;
+    width: 100%;
+    max-width: 520px;
+    padding: 11px 16px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    background: rgba(255,255,255,0.6);
+    color: var(--text);
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.quick-search input:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(151,14,14,0.1);
 }
 
 .quick-search button {
-  padding: 9px 12px;
-  border: 1px solid var(--primary);
-  border-radius: 6px;
-  background: var(--primary);
-  color: #fff;
-  cursor: pointer;
-  font-size: 13px;
-  white-space: nowrap;
+    padding: 11px 18px;
+    border: none;
+    border-radius: 8px;
+    background: var(--primary);
+    color: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(151,14,14,0.15);
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .quick-search button:hover {
-  background: var(--primary-light);
+    background: var(--primary-light);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(151,14,14,0.2);
 }
 
 .listings-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 16px;
-    padding: 24px;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 20px;
+    padding: 28px;
 }
 
 .listing-card {
-    background: #f8f9fa;
-    border-radius: 8px;
+    background: var(--surface);
+    border-radius: 12px;
     overflow: hidden;
     text-decoration: none;
     color: inherit;
-    transition: all 0.3s;
-    border: 1px solid transparent;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid var(--border);
     display: flex;
     flex-direction: column;
+    box-shadow: var(--shadow);
 }
 
 .listing-card:hover {
-    border-color: #ddd;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    transform: translateY(-4px);
+    border-color: var(--accent);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+    transform: translateY(-6px);
 }
 
 .listing-card-img {
     width: 100%;
-    height: 140px;
-    background: #e9ecef;
-  position: relative;
+    height: 160px;
+    background: linear-gradient(135deg, #eef2f7 0%, #e0e9f0 100%);
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -395,18 +566,21 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: var(--accent);
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent) 0%, #f5a623 100%);
   color: #1a1f2e;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 900;
   letter-spacing: .2px;
-  box-shadow: 0 8px 18px rgba(0,0,0,0.18);
+  box-shadow: 0 8px 24px rgba(245,166,35,0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 .listing-card.is-featured {
-  border-color: rgba(245,166,35,.55);
+  border: 2px solid var(--accent);
+  background: linear-gradient(135deg, rgba(245,166,35,0.02) 0%, rgba(151,14,14,0.02) 100%);
 }
 
 .listing-card-img img {
@@ -416,48 +590,54 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
 }
 
 .listing-card-body {
-    padding: 12px;
+    padding: 16px;
     flex: 1;
     display: flex;
     flex-direction: column;
 }
 
 .listing-card-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: #333;
-    margin-bottom: 6px;
-    line-height: 1.3;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 8px;
+    line-height: 1.35;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    letter-spacing: -0.2px;
 }
 
 .listing-card-price {
-    font-size: 14px;
-    font-weight: 700;
-    color: #667eea;
-    margin-bottom: 8px;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--primary);
+    margin-bottom: 10px;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
+    letter-spacing: -0.3px;
 }
 
 .listing-card-price i {
-    font-size: 12px;
+    font-size: 13px;
 }
 
 .condition-badge {
-    display: inline-block;
-    font-size: 10px;
-    padding: 3px 8px;
-    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    padding: 5px 10px;
+    border-radius: 6px;
     background: #e8f0ff;
-    color: #667eea;
-    font-weight: 600;
-    margin-bottom: 8px;
+    color: #004085;
+    font-weight: 700;
+    margin-bottom: 10px;
     width: fit-content;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
 }
 
 .condition-badge.new {
@@ -481,46 +661,80 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
 }
 
 .listing-card-meta {
-    font-size: 11px;
-    color: #999;
+    font-size: 12px;
+    color: var(--muted);
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    margin-top: auto;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+
+.listing-card-seller {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+}
+
+.listing-card-seller-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+    overflow: hidden;
+    border: 2px solid var(--border);
+}
+
+.listing-card-seller-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
 
 .listing-card-meta span {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
+    font-weight: 500;
 }
 
 .listing-card-meta i {
-    color: #ffc107;
-    font-size: 11px;
+    color: var(--accent);
+    font-size: 12px;
 }
 
 .empty-state {
     text-align: center;
     padding: 80px 40px;
-    color: #999;
+    color: var(--muted);
 }
 
 .empty-icon {
     font-size: 72px;
     margin-bottom: 20px;
-    color: #ddd;
+    color: #e0e4ea;
 }
 
 .empty-state h3 {
-    font-size: 18px;
-    color: #333;
-  margin-bottom: 8px;
+    font-size: 20px;
+    color: var(--text);
+    margin-bottom: 12px;
+    font-weight: 800;
 }
 
 .empty-state p {
-    font-size: 14px;
-    color: #999;
+    font-size: 15px;
+    color: var(--muted);
 }
 
 .sidebar-toggle {
@@ -544,83 +758,542 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
 }
 
 @media (max-width: 768px) {
+    .hero-section {
+        padding: 36px 16px;
+        margin-bottom: 24px;
+    }
+
+    .hero-title {
+        font-size: 26px;
+    }
+
+    .hero-subtitle {
+        font-size: 14px;
+        margin-bottom: 20px;
+    }
+
+    .hero-search-wrapper {
+        flex-direction: column;
+        max-width: 100%;
+        margin-bottom: 20px;
+    }
+
+    .hero-search-wrapper input,
+    .hero-search-wrapper button {
+        width: 100%;
+    }
+
+    .hero-categories {
+        margin-top: 16px;
+        gap: 8px;
+    }
+
+    .hero-chip {
+        font-size: 12px;
+        padding: 6px 12px;
+    }
+
     .main-layout {
-    grid-template-columns: 1fr;
-    gap: 16px;
-    padding: 16px 12px;
+        grid-template-columns: 1fr;
+        gap: 16px;
+        padding: 16px 12px;
     }
     .sidebar {
-    position: static;
-    max-height: none;
-    overflow: visible;
+        position: static;
+        max-height: none;
+        overflow: visible;
+        border-radius: 12px;
     }
-  .main-content {
-    min-width: 0;
-  }
+    .main-content {
+        min-width: 0;
+    }
     .listings-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    padding: 16px;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        padding: 16px;
+        gap: 16px;
     }
-  .category-list a {
-    font-size: 12px;
-    padding: 6px;
-  }
+    .category-list a {
+        font-size: 13px;
+        padding: 9px 10px;
+    }
     .top-nav-content {
         gap: 15px;
         overflow-x: auto;
     }
+    .content-header {
+        padding: 16px 20px;
+        gap: 12px;
+    }
+    .content-header h2 {
+        font-size: 16px;
+    }
+    .quick-search {
+        width: 100%;
+    }
+    .quick-search input,
+    .quick-search button {
+        font-size: 13px;
+        padding: 9px 12px;
+    }
 }
 
-  @media (max-width: 480px) {
+@media (max-width: 480px) {
+    .hero-section {
+        padding: 28px 14px;
+    }
+
+    .hero-title {
+        font-size: 22px;
+        margin-bottom: 6px;
+    }
+
+    .hero-subtitle {
+        font-size: 13px;
+        margin-bottom: 16px;
+    }
+
+    .hero-search-wrapper {
+        margin-bottom: 16px;
+    }
+
+    .hero-chip {
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+
     .main-layout {
-      grid-template-columns: 1fr;
-      gap: 12px;
+        grid-template-columns: 1fr;
+        gap: 12px;
+        padding: 12px 10px;
     }
 
     .sidebar-toggle {
-      display: inline-flex;
+        display: inline-flex;
     }
 
     .sidebar-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.35);
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.18s ease;
-      z-index: 400;
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.35);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.18s ease;
+        z-index: 400;
     }
 
     .sidebar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      height: 100vh;
-      width: min(280px, 82vw);
-      z-index: 500;
-      border-radius: 0 8px 8px 0;
-      transform: translateX(-110%);
-      transition: transform 0.18s ease;
-      max-height: none;
-      overflow: auto;
-      visibility: hidden;
-      pointer-events: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        width: min(280px, 82vw);
+        z-index: 500;
+        border-radius: 0 12px 12px 0;
+        transform: translateX(-110%);
+        transition: transform 0.18s ease;
+        max-height: none;
+        overflow: auto;
+        visibility: hidden;
+        pointer-events: none;
     }
 
     body.sidebar-open .sidebar {
-      transform: translateX(0);
-      visibility: visible;
-      pointer-events: auto;
+        transform: translateX(0);
+        visibility: visible;
+        pointer-events: auto;
+    }
+
+    .sidebar-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.35);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.18s ease;
+        z-index: 400;
     }
 
     body.sidebar-open .sidebar-overlay {
-      display: block;
-      opacity: 1;
-      pointer-events: auto;
+        display: block;
+        opacity: 1;
+        pointer-events: auto;
     }
-  }
+
+    .listings-grid {
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        padding: 12px;
+        gap: 12px;
+    }
+
+    .listing-card-img {
+        height: 130px;
+    }
+
+    .listing-card-title {
+        font-size: 13px;
+    }
+
+    .listing-card-price {
+        font-size: 15px;
+        margin-bottom: 8px;
+    }
+
+    .content-header {
+        padding: 14px 16px;
+        gap: 10px;
+    }
+
+    .content-header h2 {
+        font-size: 14px;
+    }
+
+    .sort-dropdown,
+    .quick-search input,
+    .quick-search button {
+        font-size: 12px;
+    }
+
+    .condition-badge {
+        font-size: 10px;
+        padding: 4px 8px;
+    }
+}
+
+/* ── Featured Banner Section ──────────────────────────────────── */
+.featured-banner {
+    background: linear-gradient(135deg, #1a1f2e 0%, #2d3748 100%);
+    color: #fff;
+    padding: 48px 20px;
+    margin: 0 0 32px;
+    border-radius: 0 0 34px 34px;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.15);
+    min-height: 320px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.featured-banner-carousel {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.featured-banner-slide {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.8s ease-in-out;
+    display: flex;
+    align-items: center;
+}
+
+.featured-banner-slide.active {
+    opacity: 1;
+    z-index: 10;
+}
+
+.featured-banner-content {
+    max-width: 1400px;
+    width: 100%;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    align-items: center;
+    padding: 0 20px;
+    position: relative;
+    z-index: 5;
+}
+
+.featured-banner-info h3 {
+    font-size: 14px;
+    color: var(--accent);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+}
+
+.featured-banner-info h2 {
+    font-size: 36px;
+    font-weight: 900;
+    margin-bottom: 16px;
+    line-height: 1.2;
+    letter-spacing: -0.5px;
+}
+
+.featured-banner-info p {
+    font-size: 15px;
+    color: rgba(255,255,255,0.85);
+    margin-bottom: 24px;
+    line-height: 1.6;
+}
+
+.featured-banner-price {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.featured-banner-price .current {
+    font-size: 32px;
+    font-weight: 900;
+    color: var(--accent);
+}
+
+.featured-banner-price .original {
+    font-size: 20px;
+    color: rgba(255,255,255,0.6);
+    text-decoration: line-through;
+}
+
+.featured-banner-price .discount {
+    background: var(--accent);
+    color: #1a1f2e;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-weight: 800;
+    font-size: 13px;
+}
+
+.featured-banner-image {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+}
+
+.featured-banner-image img {
+    max-width: 100%;
+    max-height: 350px;
+    object-fit: contain;
+    filter: drop-shadow(0 20px 40px rgba(0,0,0,0.3));
+    animation: slideInRight 0.8s ease-in-out;
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(40px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.featured-banner-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 28px;
+    background: var(--accent);
+    color: #1a1f2e;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.featured-banner-btn:hover {
+    background: #f5a623;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(245,166,35,0.3);
+}
+
+.featured-banner-indicators {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 20;
+}
+
+.carousel-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.4);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.carousel-dot.active {
+    background: var(--accent);
+    width: 28px;
+    border-radius: 5px;
+}
+
+@media (max-width: 768px) {
+    .featured-banner {
+        padding: 36px 16px;
+        margin-bottom: 24px;
+        border-radius: 0 0 24px 24px;
+        min-height: 260px;
+    }
+
+    .featured-banner-content {
+        grid-template-columns: 1fr;
+        gap: 24px;
+        padding: 0 16px;
+    }
+
+    .featured-banner-info h2 {
+        font-size: 28px;
+    }
+
+    .featured-banner-image {
+        min-height: 200px;
+    }
+
+    .featured-banner-image img {
+        max-height: 240px;
+    }
+}
+
+/* ── Additional Polish ──────────────────────────────────── */
+.listing-card-img {
+    transition: transform 0.3s ease;
+}
+
+.listing-card:hover .listing-card-img {
+    transform: scale(1.05);
+}
+
+.listing-card-seller-avatar {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.listing-card:hover .listing-card-seller-avatar {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(151,14,14,0.2);
+}
+
+.condition-badge {
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.hero-chip {
+    animation: fadeInUp 0.4s ease 0.1s both;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.listing-card {
+    animation: fadeInUp 0.3s ease;
+}
+
+/* Smooth scrolling and transitions */
+html {
+    scroll-behavior: smooth;
+}
+
+* {
+    transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+button, a {
+    transition: all 0.2s ease;
+}
 </style>
+
+  <!-- Hero Section -->
+  <div class="hero-section">
+    <div class="hero-inner">
+      <p class="hero-subtitle">Browse thousands of items from fellow students. Buy smart, sell easy.</p>
+      
+      <form method="GET" class="hero-search-wrapper" action="index.php">
+        <input type="text" name="search" placeholder="Search for items, books, electronics..." value="<?= e($search) ?>">
+        <button type="submit"><i class="fas fa-search"></i> Search</button>
+      </form>
+
+      <div class="hero-categories">
+        <a href="index.php" class="hero-chip" title="Browse all items">
+          <i class="fas fa-inbox"></i> All Items
+        </a>
+        <?php foreach ($categories as $cat): ?>
+                    <a href="<?= buildQueryString(['category' => $cat['slug'], 'subcat' => '']) ?>" class="hero-chip" title="<?= e(getCategoryDisplayName($cat['slug'], $cat['name'])) ?>">
+                        <i class="<?= getCategoryIcon($cat['slug']) ?>"></i> <?= e(getCategoryDisplayName($cat['slug'], $cat['name'])) ?>
+          </a>
+        <?php endforeach; ?>
+      </div>
+    </div>
+  </div>
+
+  <!-- Featured Banner Section -->
+  <?php if (!empty($featuredListings)): ?>
+  <div class="featured-banner">
+    <div class="featured-banner-carousel" id="featured-carousel">
+      <?php foreach ($featuredListings as $idx => $listing): ?>
+      <div class="featured-banner-slide <?= $idx === 0 ? 'active' : '' ?>" data-index="<?= $idx ?>">
+        <div class="featured-banner-content">
+          <div class="featured-banner-info">
+            <h2><?= e($listing['title']) ?></h2>
+            <p>Check out this amazing deal! Limited time offer on premium quality items from verified sellers.</p>
+            <div class="featured-banner-price">
+              <span class="current"><?= formatPrice($listing['price']) ?></span>
+              <span class="discount">⚡ Limited Time</span>
+            </div>
+            <a href="<?= APP_URL ?>/pages/listing.php?id=<?= $listing['id'] ?>" class="featured-banner-btn">
+              <i class="fas fa-shopping-cart"></i> View Item
+            </a>
+          </div>
+          <div class="featured-banner-image">
+            <?php if ($listing['img']): ?>
+              <img src="<?= APP_URL.'/public/'.e($listing['img']) ?>" alt="<?= e($listing['title']) ?>" loading="lazy">
+            <?php else: ?>
+              <div style="font-size: 64px; color: rgba(255,255,255,0.5);"><i class="fas fa-box"></i></div>
+            <?php endif; ?>
+          </div>
+        </div>
+      </div>
+      <?php endforeach; ?>
+    </div>
+    
+    <?php if (count($featuredListings) > 1): ?>
+    <div class="featured-banner-indicators">
+      <?php foreach ($featuredListings as $idx => $listing): ?>
+      <div class="carousel-dot <?= $idx === 0 ? 'active' : '' ?>" data-index="<?= $idx ?>" onclick="goToSlide(<?= $idx ?>)"></div>
+      <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+  </div>
+  <?php endif; ?>
 
   <div class="sidebar-overlay" id="sidebar-overlay"></div>
 
@@ -634,22 +1307,21 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
           <i class="fas fa-bars" aria-hidden="true"></i>
         </button>
       </h3>
-      <ul class="category-list">
-        <li><a href="index.php" class="<?= !$catSlug ? 'active' : '' ?>"><i class="fas fa-inbox"></i> All Items</a></li>
-        <?php foreach ($categories as $cat): ?>
-          <li>
-            <a href="<?= buildQueryString(['category' => $cat['slug']]) ?>"
-               class="<?= $catSlug === $cat['slug'] ? 'active' : '' ?>">
-              <i class="<?= getCategoryIcon($cat['slug']) ?>"></i> <?= e($cat['name']) ?>
-            </a>
-          </li>
-        <?php endforeach; ?>
-      </ul>
+
+      <?php
+        $currentCategorySlug = $catSlug;
+        $currentSubcat = $subcat;
+                $renderSidebarTitle = false;
+        include __DIR__ . '/includes/categories_sidebar_categories.php';
+      ?>
 
       <div class="sidebar-section">
         <h3><i class="fas fa-filter"></i> Filters</h3>
         <form method="GET" id="filter-form">
           <?php if ($search): ?><input type="hidden" name="search" value="<?= e($search) ?>"><?php endif; ?>
+                    <?php if ($catSlug): ?><input type="hidden" name="category" value="<?= e($catSlug) ?>"><?php endif; ?>
+                    <?php if ($subcat): ?><input type="hidden" name="subcat" value="<?= e($subcat) ?>"><?php endif; ?>
+                    <?php if ($sort): ?><input type="hidden" name="sort" value="<?= e($sort) ?>"><?php endif; ?>
 
           <div style="margin-bottom: 12px;">
             <label style="font-size: 12px; color: #666; font-weight: 600; display: block; margin-bottom: 6px;">
@@ -677,7 +1349,7 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
           <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 12px; padding: 8px;">
             <i class="fas fa-check"></i> Apply
           </button>
-          <?php if ($catSlug || $cond || $minPrice || $maxPrice): ?>
+                    <?php if ($catSlug || $subcat || $cond || $minPrice || $maxPrice): ?>
             <a href="index.php" class="btn btn-outline" style="width: 100%; font-size: 12px; padding: 8px; margin-top: 8px; display: block; text-align: center;">
               <i class="fas fa-redo"></i> Clear
             </a>
@@ -697,19 +1369,9 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
             <i class="fas fa-shopping-bag"></i>
             <?= getCategoryName($catSlug, $categories) ?>
           <?php else: ?>
-            <span class="buy-now">   BUY NOW</span>
+            <i class="fas fa-fire"></i> Hot Deals
           <?php endif; ?>
         </h2>
-
-        <form method="GET" class="quick-search">
-          <?php if ($catSlug): ?><input type="hidden" name="category" value="<?= e($catSlug) ?>"><?php endif; ?>
-          <?php if ($cond): ?><input type="hidden" name="condition" value="<?= e($cond) ?>"><?php endif; ?>
-          <?php if ($minPrice): ?><input type="hidden" name="min" value="<?= e((string)$minPrice) ?>"><?php endif; ?>
-          <?php if ($maxPrice): ?><input type="hidden" name="max" value="<?= e((string)$maxPrice) ?>"><?php endif; ?>
-          <?php if ($sort): ?><input type="hidden" name="sort" value="<?= e($sort) ?>"><?php endif; ?>
-          <input type="text" name="search" placeholder="Search items…" value="<?= e($search) ?>">
-          <button type="submit"><i class="fas fa-search"></i> Search</button>
-        </form>
 
         <select name="sort" class="sort-dropdown" onchange="window.location.href='<?= buildQueryString(['sort' => '']) ?>'.replace('sort=', 'sort=') + this.value">
           <option value="newest" <?= $sort==='newest'?'selected':'' ?>>Newest First</option>
@@ -747,8 +1409,17 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
                   <?= conditionBadge($l['condition_type']) ?>
                 </div>
                 <div class="listing-card-meta">
+                  <div class="listing-card-seller">
+                    <div class="listing-card-seller-avatar">
+                      <?php if (!empty($l['seller_avatar'])): ?>
+                        <img src="<?= APP_URL . '/public/' . e($l['seller_avatar']) ?>" alt="<?= e($l['seller_name']) ?>">
+                      <?php else: ?>
+                        <?= strtoupper(substr($l['seller_name'], 0, 1)) ?>
+                      <?php endif; ?>
+                    </div>
+                    <span><?= e(explode(' ', $l['seller_name'])[0]) ?></span>
+                  </div>
                   <span><i class="fas fa-star"></i> <?= number_format($l['trust_score'], 1) ?></span>
-                  <span><i class="fas fa-user"></i> <?= e(explode(' ', $l['seller_name'])[0]) ?></span>
                 </div>
               </div>
             </a>
@@ -761,53 +1432,54 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
   </div>
 </div>
 <script>
+// Featured carousel functionality
 (function () {
-  const toggleBtn = document.getElementById('sidebar-toggle');
-  const sidebar = document.getElementById('browse-sidebar');
-  const overlay = document.getElementById('sidebar-overlay');
-  const collapseBtn = document.getElementById('sidebar-collapse');
+  const carousel = document.getElementById('featured-carousel');
+  if (!carousel) return;
 
-  if (!toggleBtn || !sidebar || !overlay) return;
+  const slides = document.querySelectorAll('.featured-banner-slide');
+  const dots = document.querySelectorAll('.carousel-dot');
+  let currentIndex = 0;
+  let autoplayInterval;
 
-  function setOpen(isOpen) {
-    document.body.classList.toggle('sidebar-open', isOpen);
-    toggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-  }
-
-  function setCollapsed(isCollapsed) {
-    document.body.classList.toggle('sidebar-collapsed', isCollapsed);
-    if (isCollapsed) setOpen(false);
-  }
-
-  toggleBtn.addEventListener('click', function () {
-    if (document.body.classList.contains('sidebar-collapsed')) {
-      setCollapsed(false);
-      return;
-    }
-    const openNow = document.body.classList.contains('sidebar-open');
-    setOpen(!openNow);
-  });
-
-  if (collapseBtn) {
-    collapseBtn.addEventListener('click', function () {
-      const collapsedNow = document.body.classList.contains('sidebar-collapsed');
-      setCollapsed(!collapsedNow);
+  function showSlide(index) {
+    slides.forEach((slide, i) => {
+      slide.classList.toggle('active', i === index);
     });
+    dots.forEach((dot, i) => {
+      dot.classList.toggle('active', i === index);
+    });
+    currentIndex = index;
   }
 
-  overlay.addEventListener('click', function () {
-    setOpen(false);
-  });
+  function nextSlide() {
+    const nextIndex = (currentIndex + 1) % slides.length;
+    showSlide(nextIndex);
+  }
 
-  sidebar.addEventListener('click', function (e) {
-    const link = e.target.closest('a');
-    if (!link) return;
-    setOpen(false);
-  });
+  function startAutoplay() {
+    if (slides.length > 1) {
+      autoplayInterval = setInterval(nextSlide, 5000); // Change slide every 5 seconds
+    }
+  }
 
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') setOpen(false);
-  });
+  function stopAutoplay() {
+    clearInterval(autoplayInterval);
+  }
+
+  // Make goToSlide accessible globally
+  window.goToSlide = function(index) {
+    showSlide(index);
+    stopAutoplay();
+    startAutoplay(); // Restart autoplay
+  };
+
+  // Start autoplay on page load
+  startAutoplay();
+
+  // Pause on hover
+  carousel.addEventListener('mouseenter', stopAutoplay);
+  carousel.addEventListener('mouseleave', startAutoplay);
 })();
 </script>
 
@@ -815,29 +1487,16 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
 
 <?php
 function buildQueryString($updates) {
-    global $search, $catSlug, $cond, $minPrice, $maxPrice, $sort;
-    $query = ['search'=>$search,'category'=>$catSlug,'condition'=>$cond,'min'=>$minPrice,'max'=>$maxPrice,'sort'=>$sort];
+    global $search, $catSlug, $subcat, $cond, $minPrice, $maxPrice, $sort;
+    $query = ['search'=>$search,'category'=>$catSlug,'subcat'=>$subcat,'condition'=>$cond,'min'=>$minPrice,'max'=>$maxPrice,'sort'=>$sort];
     $query = array_merge($query, $updates);
     return 'index.php?' . http_build_query(array_filter($query, fn($v)=>$v!==''&&$v!==0));
 }
 
 function getCategoryName($slug, $categories) {
     foreach ($categories as $c) {
-        if ($c['slug'] === $slug) return $c['name'];
+        if ($c['slug'] === $slug) return getCategoryDisplayName($c['slug'], $c['name']);
     }
     return 'Items';
-}
-
-function getCategoryIcon($slug) {
-    $icons = [
-        'electronics' => 'fas fa-laptop',
-        'books' => 'fas fa-book',
-        'apparel' => 'fas fa-shirt',
-        'home-living' => 'fas fa-home',
-        'services' => 'fas fa-wrench',
-        'sports' => 'fas fa-basketball',
-        'furniture' => 'fas fa-chair',
-    ];
-    return $icons[$slug] ?? 'fas fa-cube';
 }
 ?>

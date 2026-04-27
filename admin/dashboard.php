@@ -68,7 +68,7 @@ $pendingListings = Database::fetchAll(
    FROM listings l
    JOIN users u ON l.seller_id=u.id
    JOIN categories c ON l.category_id=c.id
-   WHERE l.status='pending'
+  WHERE (l.status='pending' OR l.status IS NULL OR l.status='')
    ORDER BY l.created_at DESC
    LIMIT 25"
 );
@@ -156,18 +156,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
           }
         }
       }
-    } elseif ($action === 'toggle_ban') {
-        $uid = (int)($_POST['user_id'] ?? 0);
-        $me  = currentUser();
-
-        if ($uid && $me && $uid !== (int)$me['id']) {
-          $target = Database::fetchOne('SELECT id, role, is_banned FROM users WHERE id=?', [$uid]);
-          if ($target && $target['role'] === 'student') {
-            $new = $target['is_banned'] ? 0 : 1;
-            Database::query('UPDATE users SET is_banned=? WHERE id=? AND role="student"', [$new, $uid]);
-            adminAuditLog($new ? 'user.ban' : 'user.unban', 'user', $uid);
-          }
-        }
     } elseif ($action === 'toggle_verify') {
         $uid = (int)($_POST['user_id'] ?? 0);
         if ($uid) {
@@ -176,19 +164,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             $new = $target['is_verified'] ? 0 : 1;
             Database::query('UPDATE users SET is_verified=? WHERE id=? AND role="student"', [$new, $uid]);
             adminAuditLog($new ? 'user.verify' : 'user.unverify', 'user', $uid);
-          }
-        }
-    } elseif ($action === 'set_password') {
-        $uid = (int)($_POST['user_id'] ?? 0);
-        $me  = currentUser();
-        $p1  = (string)($_POST['password'] ?? '');
-        $p2  = (string)($_POST['password_confirm'] ?? '');
-
-        if ($uid && $me && $uid !== (int)$me['id'] && $p1 !== '' && hash_equals($p1, $p2) && strlen($p1) >= 8) {
-          $target = Database::fetchOne('SELECT id, role FROM users WHERE id=?', [$uid]);
-          if ($target && $target['role'] === 'student') {
-            Database::query('UPDATE users SET password_hash=? WHERE id=?', [hashPassword($p1), $uid]);
-            adminAuditLog('user.password_set', 'user', $uid);
           }
         }
     } elseif ($action === 'approve_listing') {
@@ -292,57 +267,471 @@ $pageTitle = 'Admin Dashboard';
 include __DIR__ . '/../includes/header.php';
 ?>
 
+<style>
+/* ── Admin Dashboard Enhanced Styles ──────────────────────────── */
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.admin-header h1 {
+  font-size: 32px;
+  font-weight: 900;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.admin-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* Enhanced Stat Grid */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.stat-card {
+  background: linear-gradient(135deg, var(--surface) 0%, rgba(245,166,35,0.02) 100%);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  border: 1px solid var(--border);
+  transition: all 0.3s ease;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  align-items: center;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+  border-color: var(--accent);
+}
+
+.stat-card.urgent {
+  background: linear-gradient(135deg, #fff5f5 0%, rgba(231,76,60,0.05) 100%);
+  border-color: rgba(231,76,60,0.3);
+}
+
+.stat-card.success {
+  background: linear-gradient(135deg, #f0fdf4 0%, rgba(34,197,94,0.05) 100%);
+  border-color: rgba(34,197,94,0.3);
+}
+
+.stat-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.stat-icon.students {
+  background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+  color: #155724;
+}
+
+.stat-icon.listings {
+  background: linear-gradient(135deg, #cce5ff 0%, #b3d9ff 100%);
+  color: #004085;
+}
+
+.stat-icon.pending {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
+  color: #856404;
+}
+
+.stat-icon.active {
+  background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+  color: #155724;
+}
+
+.stat-icon.messages {
+  background: linear-gradient(135deg, #cce5ff 0%, #b3d9ff 100%);
+  color: #004085;
+}
+
+.stat-icon.reports {
+  background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+  color: #721c24;
+}
+
+.stat-content {
+  min-width: 0;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 900;
+  margin: 0;
+  line-height: 1.2;
+  letter-spacing: -0.3px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+}
+
+.stat-change {
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.stat-change.positive {
+  color: #22c55e;
+}
+
+.stat-change.negative {
+  color: #ef4444;
+}
+
+/* Quick Actions Panel */
+.quick-actions {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  border-radius: 14px;
+  padding: 28px;
+  margin-bottom: 32px;
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(151,14,14,0.2);
+}
+
+.quick-actions h3 {
+  font-size: 16px;
+  font-weight: 800;
+  margin: 0 0 18px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0.95;
+}
+
+.quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.action-btn {
+  background: rgba(255,255,255,0.15);
+  border: 1.5px solid rgba(255,255,255,0.3);
+  color: #fff;
+  padding: 14px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.action-btn:hover {
+  background: rgba(255,255,255,0.25);
+  border-color: rgba(255,255,255,0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+}
+
+/* Enhanced Admin Layout */
+.admin-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.admin-sidebar {
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 12px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: sticky;
+  top: 80px;
+}
+
+.tab-btn {
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  white-space: nowrap;
+}
+
+.tab-btn::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: transparent;
+  border-radius: 10px 0 0 10px;
+  transition: all 0.2s ease;
+}
+
+.tab-btn:hover {
+  background: rgba(245,166,35,0.08);
+  color: var(--primary);
+}
+
+.tab-btn.active {
+  background: linear-gradient(135deg, rgba(151,14,14,0.12) 0%, rgba(245,166,35,0.08) 100%);
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.tab-btn.active::before {
+  background: var(--primary);
+}
+
+.tab-btn-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: #e74c3c;
+  color: #fff;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 800;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Enhanced Tables */
+.table-wrap {
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow-x: auto;
+  border: 1px solid var(--border);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+th {
+  padding: 14px 16px;
+  text-align: left;
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+  background: linear-gradient(135deg, rgba(151,14,14,0.02) 0%, rgba(245,166,35,0.02) 100%);
+  text-transform: uppercase;
+}
+
+td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+tbody tr {
+  transition: all 0.2s ease;
+}
+
+tbody tr:hover {
+  background: linear-gradient(135deg, rgba(245,166,35,0.05) 0%, rgba(151,14,14,0.03) 100%);
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+@media (max-width: 768px) {
+  .admin-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-sidebar {
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 8px;
+    position: static;
+  }
+
+  .tab-btn {
+    flex-shrink: 0;
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  .stat-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+
+  .quick-actions-grid {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+
+  .admin-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+}
+</style>
+
 <div class="container" style="padding:28px 16px">
 
   <div class="admin-header">
     <div>
-      <h1 class="page-title"> Admin Dashboard</h1>
-      <p class="page-sub"><?= UNIVERSITY_NAME ?> — CampusMart Management</p>
+      <h1 class="page-title">Admin Dashboard</h1>
+      <p class="page-sub">CampusMart Management</p>
     </div>
-    <?php if ($stats['reports'] > 0): ?>
-      <span class="badge badge-red" style="font-size:14px;padding:8px 16px">
-         <?= $stats['reports'] ?> pending report<?= $stats['reports']!=1?'s':'' ?>
-      </span>
-    <?php endif; ?>
   </div>
 
   <!-- Stat cards -->
   <div class="stat-grid">
-    <div class="stat-card">
-      <div class="stat-icon" style="background:#d4edda"></div>
-      <div><div class="stat-value"><?= number_format($stats['students']) ?></div><div class="stat-label">Students</div></div>
+    <div class="stat-card success">
+      <div class="stat-icon students"><i class="fas fa-users"></i></div>
+      <div class="stat-content">
+        <div class="stat-value"><?= number_format($stats['students']) ?></div>
+        <div class="stat-label">Students</div>
+      </div>
     </div>
     <div class="stat-card">
-      <div class="stat-icon" style="background:#cce5ff"></div>
-      <div><div class="stat-value"><?= number_format($stats['listings']) ?></div><div class="stat-label">Total Listings</div></div>
+      <div class="stat-icon listings"><i class="fas fa-th-list"></i></div>
+      <div class="stat-content">
+        <div class="stat-value"><?= number_format($stats['listings']) ?></div>
+        <div class="stat-label">Total Listings</div>
+      </div>
+    </div>
+    <div class="stat-card urgent">
+      <div class="stat-icon pending"><i class="fas fa-clock"></i></div>
+      <div class="stat-content">
+        <div class="stat-value"><?= number_format($stats['pending']) ?></div>
+        <div class="stat-label">Pending</div>
+        <div class="stat-change negative"><i class="fas fa-arrow-up"></i> Needs Review</div>
+      </div>
+    </div>
+    <div class="stat-card success">
+      <div class="stat-icon active"><i class="fas fa-check-circle"></i></div>
+      <div class="stat-content">
+        <div class="stat-value"><?= number_format($stats['active']) ?></div>
+        <div class="stat-label">Active</div>
+        <div class="stat-change positive"><i class="fas fa-arrow-up"></i> Live</div>
+      </div>
     </div>
     <div class="stat-card">
-      <div class="stat-icon" style="background:#fff3cd"></div>
-      <div><div class="stat-value"><?= number_format($stats['pending']) ?></div><div class="stat-label">Pending Listings</div></div>
+      <div class="stat-icon messages"><i class="fas fa-comments"></i></div>
+      <div class="stat-content">
+        <div class="stat-value"><?= number_format($stats['messages']) ?></div>
+        <div class="stat-label">Messages</div>
+      </div>
     </div>
-    <div class="stat-card">
-      <div class="stat-icon" style="background:#d4edda"></div>
-      <div><div class="stat-value"><?= number_format($stats['active']) ?></div><div class="stat-label">Active Listings</div></div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon" style="background:#cce5ff"></div>
-      <div><div class="stat-value"><?= number_format($stats['messages']) ?></div><div class="stat-label">Messages</div></div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon" style="background:#f8d7da"></div>
-      <div><div class="stat-value"><?= number_format($stats['reports']) ?></div><div class="stat-label">Pending Reports</div></div>
+    <div class="stat-card urgent">
+      <div class="stat-icon reports"><i class="fas fa-exclamation-circle"></i></div>
+      <div class="stat-content">
+        <div class="stat-value"><?= number_format($stats['reports']) ?></div>
+        <div class="stat-label">Reports</div>
+        <div class="stat-change negative"><i class="fas fa-exclamation"></i> Urgent</div>
+      </div>
     </div>
   </div>
 
-  <!-- Tabs -->
-  <div class="tabs">
-    <button class="tab-btn" data-tab="users"> Users</button>
-    <button class="tab-btn" data-tab="moderation">Moderation (<?= (int)$stats['pending'] ?>)</button>
-    <button class="tab-btn" data-tab="listings"> Listings</button>
-    <button class="tab-btn" data-tab="categories"> Categories</button>
-    <button class="tab-btn" data-tab="reports">Reports (<?= (int)$stats['reports'] ?>)</button>
-    <button class="tab-btn" data-tab="audit"> Audit Log</button>
+  <!-- Quick Actions Panel -->
+  <div class="quick-actions">
+    <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
+    <div class="quick-actions-grid">
+      <button class="action-btn" data-action="categories">
+        <i class="fas fa-plus"></i> Create Category
+      </button>
+      <button class="action-btn" data-action="users">
+        <i class="fas fa-ban"></i> Manage Users
+      </button>
+      <button class="action-btn" data-action="moderation">
+        <i class="fas fa-check"></i> Review Listings
+      </button>
+      <button class="action-btn" data-action="reports">
+        <i class="fas fa-flag"></i> View Reports
+      </button>
+    </div>
   </div>
+
+  <div class="admin-layout">
+    <aside class="admin-sidebar" aria-label="Admin navigation">
+      <button class="tab-btn active" data-tab="users">
+        <i class="fas fa-users"></i> Users
+      </button>
+      <button class="tab-btn" data-tab="moderation">
+        <i class="fas fa-inbox"></i> Moderation
+        <?php if ($stats['pending'] > 0): ?><span class="tab-btn-badge"><?= $stats['pending'] ?></span><?php endif; ?>
+      </button>
+      <button class="tab-btn" data-tab="listings">
+        <i class="fas fa-th-list"></i> Listings
+      </button>
+      <button class="tab-btn" data-tab="categories">
+        <i class="fas fa-tags"></i> Categories
+      </button>
+      <button class="tab-btn" data-tab="reports">
+        <i class="fas fa-flag"></i> Reports
+        <?php if ($stats['reports'] > 0): ?><span class="tab-btn-badge"><?= $stats['reports'] ?></span><?php endif; ?>
+      </button>
+      <button class="tab-btn" data-tab="audit">
+        <i class="fas fa-history"></i> Audit Log
+      </button>
+    </aside>
+
+    <section class="admin-main" aria-label="Admin content">
 
   <!-- Users tab -->
   <div id="tab-users" class="tab-pane">
@@ -389,26 +778,12 @@ include __DIR__ . '/../includes/header.php';
 
                 <form method="POST" style="display:inline">
                   <?= csrfField() ?>
-                  <input type="hidden" name="action"  value="toggle_ban">
-                  <input type="hidden" name="user_id" value="<?= $u['id'] ?>">
-                  <button type="submit" class="btn btn-sm <?= $u['is_banned'] ? 'btn-outline' : 'btn-danger' ?>"
-                          data-confirm="<?= $u['is_banned'] ? 'Unban this user?' : 'Ban this user?' ?>">
-                    <?= $u['is_banned'] ? 'Unban' : 'Ban' ?>
-                  </button>
-                </form>
-
-                <form method="POST" style="display:inline">
-                  <?= csrfField() ?>
                   <input type="hidden" name="action"  value="toggle_verify">
                   <input type="hidden" name="user_id" value="<?= $u['id'] ?>">
                   <button type="submit" class="btn btn-sm <?= $u['is_verified'] ? 'btn-outline' : 'btn-primary' ?>">
                     <?= $u['is_verified'] ? 'Unverify' : 'Verify' ?>
                   </button>
                 </form>
-
-                <button type="button" class="btn btn-sm btn-outline" data-modal-open="modal-pass-<?= $u['id'] ?>">
-                  Set Password
-                </button>
 
                 <form method="POST" style="display:inline">
                   <?= csrfField() ?>
@@ -419,32 +794,6 @@ include __DIR__ . '/../includes/header.php';
                     Delete
                   </button>
                 </form>
-
-                <!-- Password Modal -->
-                <div class="modal-overlay" id="modal-pass-<?= $u['id'] ?>" style="display:none">
-                  <div class="modal-box">
-                    <div class="modal-header">
-                      <h2 class="modal-title">Set New Password</h2>
-                      <button class="modal-close" data-modal-close>×</button>
-                    </div>
-                    <form method="POST">
-                      <?= csrfField() ?>
-                      <input type="hidden" name="action"  value="set_password">
-                      <input type="hidden" name="user_id" value="<?= $u['id'] ?>">
-
-                      <div class="form-group">
-                        <label>New password (min 8 chars)</label>
-                        <input class="form-control" type="password" name="password" minlength="8" required>
-                      </div>
-                      <div class="form-group">
-                        <label>Confirm password</label>
-                        <input class="form-control" type="password" name="password_confirm" minlength="8" required>
-                      </div>
-
-                      <button type="submit" class="btn btn-primary btn-full">Save</button>
-                    </form>
-                  </div>
-                </div>
 
               </td>
             </tr>
@@ -735,29 +1084,7 @@ include __DIR__ . '/../includes/header.php';
                         <button type="submit" class="btn btn-sm btn-danger" data-confirm="Remove this listing?">Remove listing</button>
                       </form>
                     <?php endif; ?>
-                    <?php if (!empty($r['listing_seller_id'])): ?>
-                      <form method="POST" style="display:inline">
-                        <?= csrfField() ?>
-                        <input type="hidden" name="action" value="toggle_ban">
-                        <input type="hidden" name="user_id" value="<?= (int)$r['listing_seller_id'] ?>">
-                        <?php $sellerBanned = !empty($r['listing_seller_banned']); ?>
-                        <button type="submit" class="btn btn-sm <?= $sellerBanned ? 'btn-outline' : 'btn-danger' ?>"
-                                data-confirm="<?= $sellerBanned ? 'Unban this seller?' : 'Ban this seller?' ?>">
-                          <?= $sellerBanned ? 'Unban seller' : 'Ban seller' ?>
-                        </button>
-                      </form>
-                    <?php endif; ?>
                   <?php elseif (!empty($r['reported_user_id'])): ?>
-                    <form method="POST" style="display:inline">
-                      <?= csrfField() ?>
-                      <input type="hidden" name="action" value="toggle_ban">
-                      <input type="hidden" name="user_id" value="<?= (int)$r['reported_user_id'] ?>">
-                      <?php $userBanned = !empty($r['reported_user_banned']); ?>
-                      <button type="submit" class="btn btn-sm <?= $userBanned ? 'btn-outline' : 'btn-danger' ?>"
-                              data-confirm="<?= $userBanned ? 'Unban this user?' : 'Ban this user?' ?>">
-                        <?= $userBanned ? 'Unban user' : 'Ban user' ?>
-                      </button>
-                    </form>
                   <?php endif; ?>
 
                   <form method="POST" style="display:inline">
@@ -818,6 +1145,58 @@ include __DIR__ . '/../includes/header.php';
     <?php endif; ?>
   </div>
 
+    </section>
+  </div>
+
+  <div class="admin-bottom-maroon" aria-hidden="true"></div>
+
 </div>
+
+<script>
+(function() {
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  const tabPanes = document.querySelectorAll('.tab-pane');
+  const actionBtns = document.querySelectorAll('[data-action]');
+  
+  function showTab(tabName) {
+    // Hide all panes
+    tabPanes.forEach(pane => pane.style.display = 'none');
+    
+    // Remove active class from all buttons
+    tabBtns.forEach(btn => btn.classList.remove('active'));
+    
+    // Show selected pane
+    const selectedPane = document.getElementById('tab-' + tabName);
+    if (selectedPane) {
+      selectedPane.style.display = 'block';
+    }
+    
+    // Add active class to clicked button
+    const activeBtn = document.querySelector('[data-tab="' + tabName + '"]');
+    if (activeBtn) {
+      activeBtn.classList.add('active');
+    }
+  }
+  
+  // Add click listeners to tab buttons
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', function() {
+      const tabName = this.getAttribute('data-tab');
+      showTab(tabName);
+    });
+  });
+  
+  // Add click listeners to action buttons
+  actionBtns.forEach(btn => {
+    btn.addEventListener('click', function() {
+      const tabName = this.getAttribute('data-action');
+      showTab(tabName);
+    });
+  });
+  
+  // Initialize: show users tab by default
+  showTab('users');
+})();
+</script>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

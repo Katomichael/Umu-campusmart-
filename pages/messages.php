@@ -87,8 +87,10 @@ $conversations = Database::fetchAll(
   "SELECT
     cm.listing_id,
     l.title AS listing_title,
+    l.price AS listing_price,
     cm.other_id,
     u.full_name AS other_name,
+    u.avatar AS other_avatar,
     m.content AS last_msg,
     m.created_at,
     (
@@ -122,7 +124,7 @@ $chatMessages = [];
 $otherUser    = null;
 if ($activeListing && $activeWith) {
     $chatMessages = Database::fetchAll(
-        "SELECT m.*, u.full_name AS sender_name
+        "SELECT m.*, u.full_name AS sender_name, u.avatar AS sender_avatar
          FROM messages m JOIN users u ON m.sender_id = u.id
          WHERE m.listing_id = ?
            AND ((m.sender_id = ? AND m.receiver_id = ?)
@@ -136,6 +138,7 @@ if ($activeListing && $activeWith) {
       [$activeListing, $activeWith, $me['id']]
     );
     $otherUser = Database::fetchOne('SELECT id, full_name, avatar FROM users WHERE id=?', [$activeWith]);
+    $listingData = Database::fetchOne('SELECT id, title, price FROM listings WHERE id=?', [$activeListing]);
 }
 
 $pageTitle = 'Messages';
@@ -143,6 +146,243 @@ include __DIR__ . '/../includes/header.php';
 ?>
 <style>
   .main-content { padding: 0 !important; }
+  
+  /* Conversation List Improvements */
+  .conv-item {
+    display: flex !important;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 14px 16px !important;
+    transition: all 0.2s ease;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: nowrap;
+  }
+  
+  .conv-item:hover {
+    background: linear-gradient(135deg, rgba(151,14,14,0.04) 0%, rgba(245,166,35,0.04) 100%) !important;
+    transform: translateX(4px);
+  }
+  
+  .conv-item.active {
+    background: linear-gradient(135deg, rgba(151,14,14,0.1) 0%, rgba(245,166,35,0.08) 100%) !important;
+    border-left: 3px solid var(--primary);
+    padding-left: 13px !important;
+  }
+  
+  .conv-item-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 16px;
+    flex-shrink: 0;
+    overflow: hidden;
+    border: 2px solid var(--border);
+  }
+  
+  .conv-item-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  
+  .conv-item-content {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+  
+  .conv-item-thumb {
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    background: #eef2f7;
+    overflow: hidden;
+    flex-shrink: 0;
+    object-fit: cover;
+    border: 1px solid var(--border);
+  }
+  
+  .conv-item-unread {
+    background: var(--accent) !important;
+    color: #1a1f2e !important;
+    font-weight: 700 !important;
+  }
+  
+  .conv-item-last {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  /* Message Bubbles */
+  .chat-bubble-wrap {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    margin: 12px 0;
+    animation: messageSlide 0.3s ease;
+  }
+  
+  .chat-bubble-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 13px;
+    flex-shrink: 0;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  
+  .chat-bubble-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  
+  .chat-bubble-wrap.me {
+    justify-content: flex-end;
+  }
+  
+  .chat-bubble-wrap.me .chat-bubble-avatar {
+    order: 2;
+  }
+  
+  .chat-bubble-wrap.me > div:not(.chat-bubble-avatar) {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+  
+  .chat-bubble-content {
+    max-width: 65%;
+    padding: 11px 14px;
+    border-radius: 14px;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  
+  .chat-bubble-wrap.them .chat-bubble-content {
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    border-radius: 14px 14px 14px 4px;
+    color: var(--text);
+  }
+  
+  .chat-bubble-wrap.me .chat-bubble-content {
+    background: var(--primary);
+    color: #fff;
+    border-radius: 14px 14px 4px 14px;
+  }
+  
+  .chat-time {
+    font-size: 11px;
+    opacity: .7;
+    margin-top: 4px;
+    padding: 0 4px;
+  }
+  
+  @keyframes messageSlide {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* Chat Messages Area */
+  .chat-messages {
+    padding: 20px;
+  }
+  
+  /* Chat Header */
+  .chat-header {
+    padding: 14px 20px !important;
+    background: linear-gradient(135deg, rgba(151,14,14,0.04) 0%, rgba(245,166,35,0.04) 100%) !important;
+    border-bottom: 2px solid var(--border) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px;
+  }
+  
+  .chat-header-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.2s ease;
+  }
+  
+  .chat-header-user:hover {
+    color: var(--primary);
+  }
+  
+  .chat-header-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 15px;
+    flex-shrink: 0;
+    overflow: hidden;
+    border: 2px solid var(--border);
+  }
+  
+  .chat-header-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  
+  .chat-header-info {
+    flex: 1;
+  }
+  
+  .chat-header-name {
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--text);
+  }
+  
+  .chat-header-listing {
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  
+  .chat-header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
 </style>
 
 <?php if ($sendError): ?>
@@ -162,15 +402,29 @@ include __DIR__ . '/../includes/header.php';
     <?php foreach ($conversations as $c): ?>
       <?php $isActive = ($c['listing_id'] == $activeListing && $c['other_id'] == $activeWith); ?>
       <a href="<?= APP_URL ?>/pages/messages.php?listing=<?= $c['listing_id'] ?>&with=<?= $c['other_id'] ?>"
-         class="conv-item <?= $isActive ? 'active' : '' ?>" style="display:block">
-        <div class="flex-between">
-          <div class="conv-item-name"><?= e($c['other_name']) ?></div>
-          <?php if ($c['unread'] > 0): ?>
-            <span style="background:var(--primary);color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700"><?= $c['unread'] ?></span>
+         class="conv-item <?= $isActive ? 'active' : '' ?> <?= $c['unread'] > 0 ? 'conv-item-unread' : '' ?>">
+        <!-- User Avatar -->
+        <div class="conv-item-avatar">
+          <?php if (!empty($c['other_avatar'])): ?>
+            <img src="<?= APP_URL . '/public/' . e($c['other_avatar']) ?>" alt="<?= e($c['other_name']) ?>">
+          <?php else: ?>
+            <?= strtoupper(substr($c['other_name'], 0, 1)) ?>
           <?php endif; ?>
         </div>
-        <div class="conv-item-listing"><?= e($c['listing_title']) ?></div>
-        <div class="conv-item-last"><?= e($c['last_msg']) ?></div>
+        
+        <!-- Content -->
+        <div class="conv-item-content">
+          <div style="font-weight: 700; color: var(--text); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><?= e($c['other_name']) ?></div>
+          <div style="font-size: 13px; color: var(--muted); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><?= e($c['listing_title']) ?></div>
+          <div class="conv-item-last" style="font-size: 13px; color: var(--muted);"><?= e(substr($c['last_msg'], 0, 50)) ?><?= strlen($c['last_msg']) > 50 ? '...' : '' ?></div>
+        </div>
+        
+        <!-- Unread Badge -->
+        <?php if ($c['unread'] > 0): ?>
+          <div style="min-width: 20px; height: 20px; background: var(--accent); color: #1a1f2e; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;">
+            <?= $c['unread'] > 99 ? '99+' : $c['unread'] ?>
+          </div>
+        <?php endif; ?>
       </a>
     <?php endforeach; ?>
   </div>
@@ -187,16 +441,35 @@ include __DIR__ . '/../includes/header.php';
       <!-- Chat header -->
       <div class="chat-header">
         <a href="<?= APP_URL ?>/pages/user_profile.php?id=<?= (int)($otherUser['id'] ?? 0) ?>"
-           style="display:flex;align-items:center;gap:12px;color:inherit">
-          <div class="seller-card-avatar" style="width:36px;height:36px;font-size:15px">
+           class="chat-header-user">
+          <div class="chat-header-avatar">
             <?php if (!empty($otherUser['avatar'])): ?>
               <img src="<?= APP_URL . '/public/' . e($otherUser['avatar']) ?>" alt="<?= e($otherUser['full_name'] ?? '') ?>">
             <?php else: ?>
               <?= strtoupper(substr($otherUser['full_name'] ?? '?', 0, 1)) ?>
             <?php endif; ?>
           </div>
-          <span style="font-weight:700;font-size:15px"><?= e($otherUser['full_name'] ?? '') ?></span>
+          <div class="chat-header-info">
+            <div class="chat-header-name"><?= e($otherUser['full_name'] ?? '') ?></div>
+            <?php if ($listingData): ?>
+              <div class="chat-header-listing">
+                <span>📦</span>
+                <span><?= e($listingData['title']) ?></span>
+              </div>
+            <?php endif; ?>
+          </div>
         </a>
+        
+        <div class="chat-header-actions">
+          <?php if ($listingData): ?>
+            <a href="<?= APP_URL ?>/pages/listing.php?id=<?= (int)$listingData['id'] ?>"
+               style="padding: 8px 14px; background: var(--primary); color: #fff; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 6px;"
+               onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(151,14,14,0.2)'"
+               onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none'">
+              👁️ View Listing
+            </a>
+          <?php endif; ?>
+        </div>
       </div>
 
       <!-- Messages -->
@@ -206,11 +479,35 @@ include __DIR__ . '/../includes/header.php';
         <?php endif; ?>
         <?php foreach ($chatMessages as $msg): ?>
           <?php $isMe = $msg['sender_id'] == $me['id']; ?>
-          <div class="chat-bubble-wrap <?= $isMe ? 'me' : '' ?>">
-            <div class="chat-bubble <?= $isMe ? 'me' : 'them' ?>">
-              <p><?= e($msg['content']) ?></p>
-              <div class="chat-time"><?= timeAgo($msg['created_at']) ?></div>
+          <div class="chat-bubble-wrap <?= $isMe ? 'me' : 'them' ?>">
+            <?php if (!$isMe): ?>
+              <div class="chat-bubble-avatar">
+                <?php if (!empty($msg['sender_avatar'])): ?>
+                  <img src="<?= APP_URL . '/public/' . e($msg['sender_avatar']) ?>" alt="<?= e($msg['sender_name']) ?>">
+                <?php else: ?>
+                  <?= strtoupper(substr($msg['sender_name'] ?? '?', 0, 1)) ?>
+                <?php endif; ?>
+              </div>
+            <?php endif; ?>
+            
+            <div>
+              <div class="chat-bubble-content">
+                <?= e($msg['content']) ?>
+              </div>
+              <div class="chat-time">
+                <?= date('g:i A', strtotime($msg['created_at'])) ?>
+              </div>
             </div>
+            
+            <?php if ($isMe): ?>
+              <div class="chat-bubble-avatar">
+                <?php if (!empty($msg['sender_avatar'])): ?>
+                  <img src="<?= APP_URL . '/public/' . e($msg['sender_avatar']) ?>" alt="You">
+                <?php else: ?>
+                  <?= strtoupper(substr($me['full_name'] ?? '?', 0, 1)) ?>
+                <?php endif; ?>
+              </div>
+            <?php endif; ?>
           </div>
         <?php endforeach; ?>
       </div>

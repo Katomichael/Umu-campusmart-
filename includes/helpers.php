@@ -229,3 +229,22 @@ function adminAuditLog(string $action, ?string $entityType = null, ?int $entityI
         // Best-effort only (e.g. table not migrated yet).
     }
 }
+
+function getCategoryIcon(string $slug): string {
+    $icons = [
+        'electronics' => 'fas fa-laptop',
+        'textbooks' => 'fas fa-book',
+        'clothing' => 'fas fa-shirt',
+        'appliances' => 'fas fa-blender',
+        'furniture' => 'fas fa-chair',
+        'sports' => 'fas fa-basketball',
+        'stationery' => 'fas fa-pen',
+        'other' => 'fas fa-cube',
+    ];
+    return $icons[$slug] ?? 'fas fa-cube';
+}
+
+function getCategoryDisplayName(string $slug, string $name): string {
+    if ($slug === 'clothing') return 'Fashion';
+    return $name;
+}

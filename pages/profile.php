@@ -57,8 +57,18 @@ $pageTitle = 'My Profile';
 include __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="container" style="max-width:900px;padding:28px 16px">
-  <h1 class="page-title"> Profile</h1>
+<div class="container" style="max-width:1400px;padding:28px 16px">
+  <div class="layout-with-sidebar">
+    <aside class="sidebar">
+      <?php
+        $currentCategorySlug = '';
+        $currentSubcat = '';
+        include __DIR__ . '/../includes/categories_sidebar_categories.php';
+      ?>
+    </aside>
+
+    <div style="flex:1;max-width:900px">
+      <h1 class="page-title"> Profile</h1>
 
   <?php if ($success): ?><div class="alert alert-success"><?= e($success) ?></div><?php endif; ?>
   <?php foreach ($errors as $e): ?><div class="alert alert-danger"><?= e($e) ?></div><?php endforeach; ?>
@@ -78,7 +88,6 @@ include __DIR__ . '/../includes/header.php';
       <p class="text-muted" style="font-size:14px;margin-bottom:6px">
         <?= e($user['course'] ?? '') ?>
         <?= $user['year_of_study'] ? ' · Year '.$user['year_of_study'] : '' ?>
-        · UMU
       </p>
       <?php if ($user['bio']): ?>
         <p style="font-size:14px;margin-bottom:8px"><?= e($user['bio']) ?></p>
@@ -202,6 +211,8 @@ include __DIR__ . '/../includes/header.php';
     </form>
   </div>
 
+    </div>
+  </div>
 </div>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

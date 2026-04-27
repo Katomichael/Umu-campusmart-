@@ -51,10 +51,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect('/pages/listing.php?id=' . $editId);
             } else {
                 $newId = Database::insert(
-                    'INSERT INTO listings (seller_id, category_id, title, description, price, condition_type, location, status)
-                     VALUES (?,?,?,?,?,?,?,?)',
+                'INSERT INTO listings (seller_id, category_id, title, description, price, condition_type, location)
+                 VALUES (?,?,?,?,?,?,?)',
                     [$me['id'], $form['category_id'], $form['title'], $form['description'],
-                     $form['price'], $form['condition_type'], $form['location'], 'pending']
+                 $form['price'], $form['condition_type'], $form['location']]
                 );
 
                 // Handle uploaded images
@@ -94,7 +94,7 @@ include __DIR__ . '/../includes/header.php';
 <div class="container" style="max-width:680px;padding:36px 16px">
   <h1 class="page-title"><?= $isEdit ? 'Edit Listing' : ' Sell Your Item' ?></h1>
   <p class="page-sub">
-    <?= $isEdit ? 'Update your listing details below.' : 'List something you no longer need.' ?>
+    <?= $isEdit ? 'Update your listing details below.' : '' ?>
   </p>
 
   <?php foreach ($errors as $err): ?>
@@ -169,5 +169,91 @@ include __DIR__ . '/../includes/header.php';
     </div>
   </form>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const fileInput = document.getElementById('images');
+  const previews = document.getElementById('image-previews');
+  let selectedFiles = new DataTransfer();
+
+  if (!fileInput || !previews) return;
+
+  fileInput.addEventListener('change', (e) => {
+    handleFiles(e.target.files);
+  });
+
+  function handleFiles(files) {
+    const maxFiles = 5;
+    const validFiles = [];
+
+    for (let file of files) {
+      if (!file.type.startsWith('image/')) {
+        alert(`"${file.name}" is not an image file.`);
+        continue;
+      }
+      if (selectedFiles.items.length + validFiles.length >= maxFiles) {
+        alert(`You can only upload up to ${maxFiles} photos.`);
+        break;
+      }
+      validFiles.push(file);
+    }
+
+    validFiles.forEach(file => {
+      selectedFiles.items.add(file);
+    });
+
+    fileInput.files = selectedFiles.files;
+    updatePreviews();
+  }
+
+  function updatePreviews() {
+    previews.innerHTML = '';
+    let index = 0;
+
+    for (let file of selectedFiles.files) {
+      const reader = new FileReader();
+      const itemIndex = index;
+
+      reader.onload = (e) => {
+        const img = document.createElement('img');
+        img.src = e.target.result;
+        img.style.cssText = 'width:80px;height:80px;object-fit:cover;border-radius:8px;border:1px solid #e0e4ea;cursor:pointer;position:relative;';
+        
+        const container = document.createElement('div');
+        container.style.cssText = 'position:relative;display:inline-block;';
+        
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.innerHTML = '✕';
+        btn.style.cssText = 'position:absolute;top:2px;right:2px;background:#dc3545;color:white;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer;opacity:0;transition:opacity 0.2s;';
+        
+        container.appendChild(img);
+        container.appendChild(btn);
+        
+        container.addEventListener('mouseenter', () => btn.style.opacity = '1');
+        container.addEventListener('mouseleave', () => btn.style.opacity = '0');
+        
+        btn.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          const newTransfer = new DataTransfer();
+          for (let i = 0; i < selectedFiles.items.length; i++) {
+            if (i !== itemIndex) {
+              newTransfer.items.add(selectedFiles.files[i]);
+            }
+          }
+          selectedFiles = newTransfer;
+          fileInput.files = selectedFiles.files;
+          updatePreviews();
+        });
+
+        previews.appendChild(container);
+      };
+
+      reader.readAsDataURL(file);
+      index++;
+    }
+  }
+});
+</script>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

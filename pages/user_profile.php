@@ -90,7 +90,6 @@ include __DIR__ . '/../includes/header.php';
       <p class="text-muted" style="font-size:14px;margin-bottom:6px">
         <?= e($user['course'] ?? '') ?>
         <?= $user['year_of_study'] ? ' · Year '.$user['year_of_study'] : '' ?>
-        · UMU
       </p>
       <?php if ($user['bio']): ?>
         <p style="font-size:14px;margin-bottom:8px"><?= e($user['bio']) ?></p>

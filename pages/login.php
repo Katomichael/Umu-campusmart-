@@ -260,10 +260,34 @@ a {
         <input class="form-control" type="password" name="password"
                placeholder="••••••••" required>
       </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:-6px;margin-bottom:8px">
+                                <a id="forgot-password-link" href="<?= APP_URL ?>/pages/reset_password.php" style="font-size:13px;color:#667eea;font-weight:600">
+                    Forgot password?
+                </a>
+            </div>
       <button type="submit" class="btn btn-primary btn-full" style="margin-top:8px">
         Sign In
       </button>
     </form>
+
+        <script>
+            (function () {
+                const link = document.getElementById('forgot-password-link');
+                if (!link) return;
+
+                link.addEventListener('click', function (e) {
+                    const emailInput = document.querySelector('input[name="email"]');
+                    const email = emailInput ? (emailInput.value || '').trim() : '';
+                    if (!email) return; // If empty, let reset page show the normal email form.
+
+                    e.preventDefault();
+                    const url = new URL(link.href, window.location.origin);
+                    url.searchParams.set('email', email);
+                    url.searchParams.set('autostart', '1');
+                    window.location.href = url.toString();
+                });
+            })();
+        </script>
 
     <p class="text-center mt-4" style="font-size:14px;color:#999">
       No account?
