@@ -405,12 +405,6 @@ include __DIR__ . '/../includes/header.php';
                 </div>
               </div>
 
-              <div style="display:flex;gap:8px;margin-bottom:14px">
-                <button class="btn btn-primary btn-full" style="padding:10px;font-size:13px">
-                  <i class="fas fa-comment"></i> Message
-                </button>
-              </div>
-
               <?php if ($me && !$isSeller): ?>
                 <button class="btn btn-outline btn-full" style="padding:10px;font-size:13px;color:#e74c3c"
                         data-modal-open="modal-report">

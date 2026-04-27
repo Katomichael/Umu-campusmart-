@@ -1166,6 +1166,76 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
     }
 }
 
+@media (max-width: 480px) {
+    .featured-banner {
+        padding: 24px 14px;
+        margin-bottom: 18px;
+        border-radius: 0 0 20px 20px;
+        min-height: 220px;
+    }
+
+    .featured-banner-content {
+        gap: 16px;
+        padding: 0 12px;
+    }
+
+    .featured-banner-info {
+        text-align: center;
+    }
+
+    .featured-banner-info h3 {
+        font-size: 12px;
+        margin-bottom: 8px;
+    }
+
+    .featured-banner-info h2 {
+        font-size: 22px;
+        margin-bottom: 10px;
+        line-height: 1.25;
+    }
+
+    .featured-banner-info p {
+        font-size: 13px;
+        margin-bottom: 14px;
+    }
+
+    .featured-banner-price {
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .featured-banner-price .current {
+        font-size: 24px;
+    }
+
+    .featured-banner-price .discount {
+        font-size: 12px;
+        padding: 6px 10px;
+        border-radius: 999px;
+    }
+
+    .featured-banner-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 12px 18px;
+        font-size: 14px;
+    }
+
+    .featured-banner-image {
+        min-height: 160px;
+    }
+
+    .featured-banner-image img {
+        max-height: 180px;
+    }
+
+    .featured-banner-indicators {
+        bottom: 14px;
+    }
+}
+
 /* ── Additional Polish ──────────────────────────────────── */
 .listing-card-img {
     transition: transform 0.3s ease;
