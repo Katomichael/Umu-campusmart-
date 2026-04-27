@@ -522,9 +522,9 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
 
 .listings-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-    gap: 20px;
-    padding: 28px;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    padding: 24px;
 }
 
 .listing-card {
@@ -548,13 +548,13 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
 
 .listing-card-img {
     width: 100%;
-    height: 160px;
+    height: 140px;
     background: linear-gradient(135deg, #eef2f7 0%, #e0e9f0 100%);
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 40px;
+    font-size: 36px;
     overflow: hidden;
     color: #999;
 }
@@ -590,18 +590,18 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
 }
 
 .listing-card-body {
-    padding: 16px;
+    padding: 12px;
     flex: 1;
     display: flex;
     flex-direction: column;
 }
 
 .listing-card-title {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 700;
     color: var(--text);
-    margin-bottom: 8px;
-    line-height: 1.35;
+    margin-bottom: 6px;
+    line-height: 1.3;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
@@ -610,18 +610,18 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
 }
 
 .listing-card-price {
-    font-size: 18px;
+    font-size: 15px;
     font-weight: 800;
     color: var(--primary);
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
     letter-spacing: -0.3px;
 }
 
 .listing-card-price i {
-    font-size: 13px;
+    font-size: 12px;
 }
 
 .condition-badge {
