@@ -1088,6 +1088,15 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
     min-height: 320px;
 }
 
+.featured-banner-image-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+}
+
 .featured-banner-image::before {
     content: '';
     position: absolute;
@@ -1248,10 +1257,7 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
     }
 
     .featured-banner-btn {
-        width: 100%;
-        justify-content: center;
-        padding: 12px 18px;
-        font-size: 14px;
+        display: none;
     }
 
     .featured-banner-image {
@@ -1374,13 +1380,15 @@ button, a {
               <i class="fas fa-shopping-cart"></i> View Item
             </a>
           </div>
-          <div class="featured-banner-image">
-            <?php if ($listing['img']): ?>
-              <img src="<?= APP_URL.'/public/'.e($listing['img']) ?>" alt="<?= e($listing['title']) ?>" loading="lazy">
-            <?php else: ?>
-              <div style="font-size: 64px; color: rgba(255,255,255,0.5);"><i class="fas fa-box"></i></div>
-            <?php endif; ?>
-          </div>
+          <a href="<?= APP_URL ?>/pages/listing.php?id=<?= $listing['id'] ?>" class="featured-banner-image-link">
+            <div class="featured-banner-image">
+              <?php if ($listing['img']): ?>
+                <img src="<?= APP_URL.'/public/'.e($listing['img']) ?>" alt="<?= e($listing['title']) ?>" loading="lazy">
+              <?php else: ?>
+                <div style="font-size: 64px; color: rgba(255,255,255,0.5);"><i class="fas fa-box"></i></div>
+              <?php endif; ?>
+            </div>
+          </a>
         </div>
       </div>
       <?php endforeach; ?>
