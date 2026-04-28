@@ -1849,6 +1849,7 @@ button, a {
   </div>
   <?php endforeach; ?>
 </div>
+<?php endif; ?>
 
 <!-- Showcase Pagination at Bottom -->
 <?php if (!empty($showcaseCategories)): ?>
