@@ -567,6 +567,12 @@ textarea.form-control { resize: vertical; min-height: 100px; }
   padding-left: 7px;
 }
 
+@media (max-width: 768px) {
+  .category-item.has-submenu .subcategory-menu {
+    display: none;
+  }
+}
+
 /* ── Listings grid ───────────────────────────────────────── */
 .listings-grid {
   display: grid;
