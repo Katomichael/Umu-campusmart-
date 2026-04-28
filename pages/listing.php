@@ -364,7 +364,7 @@ include __DIR__ . '/../includes/header.php';
               <?php endif; ?>
             <?php elseif ($isSeller): ?>
               <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <a href="<?= APP_URL ?>/pages/edit_listing.php?id=<?= $id ?>" class="btn btn-outline" style="flex:1">✏️ Edit</a>
+                <a href="<?= APP_URL ?>/pages/edit_listing.php?id=<?= $id ?>" class="btn btn-outline" style="flex:1">Edit</a>
                 <?php if ($listing['status'] === 'active'): ?>
                   <form method="POST" style="margin:0">
                     <?= csrfField() ?>
