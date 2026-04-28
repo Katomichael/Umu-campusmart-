@@ -138,50 +138,19 @@ $featuredListings = Database::fetchAll(
      LIMIT 8"
 );
 
-// Fetch showcase categories and their popular items
-$showcaseCategories = [];
-if (!empty($categories)) {
-    // Get top 4 categories by listing count
-    $topCatIds = Database::fetchAll(
-        "SELECT c.id, c.name, c.slug, COUNT(l.id) AS count
-         FROM categories c
-         LEFT JOIN listings l ON c.id = l.category_id AND l.status = 'active'
-         GROUP BY c.id
-         ORDER BY count DESC
-         LIMIT 4"
-    );
-    
-    // For each category, get top 6 items
-    foreach ($topCatIds as $cat) {
-        $items = Database::fetchAll(
-            "SELECT l.id, l.title, l.price, 
-                    (SELECT image_path FROM listing_images WHERE listing_id=l.id AND is_primary=1 LIMIT 1) AS img
-             FROM listings l
-             WHERE l.status='active' AND l.category_id = ?
-             ORDER BY l.view_count DESC, l.created_at DESC
-             LIMIT 6",
-            [$cat['id']]
-        );
-        
-        if (!empty($items)) {
-            // Paginate items: 3 per page
-            $itemsPerPage = 3;
-            $totalPages = ceil(count($items) / $itemsPerPage);
-            $paginatedItems = array_chunk($items, $itemsPerPage);
-            
-            $showcaseCategories[] = [
-                'id' => $cat['id'],
-                'name' => $cat['name'],
-                'slug' => $cat['slug'],
-                'count' => $cat['count'],
-                'items' => $items,
-                'paginatedItems' => $paginatedItems,
-                'totalPages' => $totalPages,
-                'itemsPerPage' => $itemsPerPage
-            ];
-        }
-    }
-}
+// Fetch popular listings for continuous grid
+$popularListings = Database::fetchAll(
+    "SELECT l.id, l.title, l.price, l.condition_type, l.view_count, l.is_featured, l.created_at,
+            c.name AS cat_name, c.slug AS cat_slug,
+            u.id AS seller_id, u.full_name AS seller_name, u.trust_score, u.avatar AS seller_avatar,
+            (SELECT image_path FROM listing_images WHERE listing_id=l.id AND is_primary=1 LIMIT 1) AS img
+     FROM listings l
+     JOIN categories c ON l.category_id = c.id
+     JOIN users u ON l.seller_id = u.id
+     WHERE l.status = 'active'
+     ORDER BY l.is_featured DESC, l.view_count DESC, l.created_at DESC
+     LIMIT 40"
+);
 
 $pageTitle = 'Browse Listings';
 include __DIR__ . '/includes/header.php';
@@ -1603,6 +1572,50 @@ button, a {
         padding: 6px 10px;
     }
 }
+
+/* ── Popular Listings Section ──────────────────────── */
+.popular-listings-section {
+    background: var(--bg);
+    padding: 40px 0;
+}
+
+.section-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--primary);
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    letter-spacing: -0.3px;
+}
+
+.section-title i {
+    font-size: 28px;
+    color: var(--accent);
+}
+
+@media (max-width: 768px) {
+    .popular-listings-section {
+        padding: 28px 0;
+    }
+
+    .section-title {
+        font-size: 20px;
+        margin-bottom: 20px;
+    }
+}
+
+@media (max-width: 480px) {
+    .popular-listings-section {
+        padding: 20px 0;
+    }
+
+    .section-title {
+        font-size: 18px;
+        margin-bottom: 16px;
+    }
+}
 </style>
 
   <!-- Hero Section -->
@@ -1807,68 +1820,49 @@ button, a {
   </div>
 </div>
 
-<!-- Category Showcase Sections -->
-<?php if (!empty($showcaseCategories)): ?>
-<div class="category-showcase-container">
-  <?php foreach ($showcaseCategories as $idx => $showcase): ?>
-  <div class="category-showcase">
-    <div class="showcase-header">
-      <i class="<?= getCategoryIcon($showcase['slug']) ?>"></i>
-      <h3><?= e($showcase['name']) ?></h3>
-    </div>
-    
-    <div class="showcase-grid" id="showcase-grid-<?= $idx ?>">
-      <?php foreach ($showcase['paginatedItems'][0] as $item): ?>
-      <a href="<?= APP_URL ?>/pages/listing.php?id=<?= $item['id'] ?>" class="showcase-item" title="<?= e($item['title']) ?>">
-        <?php if ($item['img']): ?>
-          <img src="<?= APP_URL.'/public/'.e($item['img']) ?>" alt="<?= e($item['title']) ?>" class="showcase-item-img" loading="lazy">
-        <?php else: ?>
-          <div class="showcase-item-img" style="display: flex; align-items: center; justify-content: center; background: #f0f0f0;">
-            <i class="fas fa-box" style="font-size: 28px; color: #ccc;"></i>
+<!-- Popular Listings Grid -->
+<?php if (!empty($popularListings)): ?>
+<div class="popular-listings-section">
+  <div class="container">
+    <h2 class="section-title"><i class="fas fa-fire"></i> Popular Items</h2>
+    <div class="listings-grid">
+      <?php foreach ($popularListings as $l): ?>
+        <?php $isFeatured = !empty($l['is_featured']); ?>
+        <a href="<?= APP_URL ?>/pages/listing.php?id=<?= $l['id'] ?>" class="listing-card <?= $isFeatured ? 'is-featured' : '' ?>">
+          <div class="listing-card-img">
+            <?php if ($isFeatured): ?>
+              <div class="featured-badge"><i class="fas fa-bolt"></i> Featured</div>
+            <?php endif; ?>
+            <?php if ($l['img']): ?>
+              <img src="<?= APP_URL.'/public/'.e($l['img']) ?>" alt="<?= e($l['title']) ?>">
+            <?php else: ?>
+              <i class="fas fa-box"></i>
+            <?php endif; ?>
           </div>
-        <?php endif; ?>
-        <span class="showcase-item-name"><?= e(substr($item['title'], 0, 30)) . (strlen($item['title']) > 30 ? '...' : '') ?></span>
-      </a>
-      <?php endforeach; ?>
-    </div>
-
-    <a href="<?= buildQueryString(['category' => $showcase['slug'], 'subcat' => '', 'search' => '', 'condition' => '', 'min' => '', 'max' => '']) ?>" class="showcase-link">
-      <i class="fas fa-arrow-right"></i> Explore more
-    </a>
-
-    <!-- Store paginated items data (hidden) -->
-    <div style="display: none;" id="showcase-data-<?= $idx ?>">
-      <?php foreach ($showcase['paginatedItems'] as $pageIdx => $pageItems): ?>
-      <div class="showcase-page" data-page="<?= $pageIdx ?>">
-        <?php foreach ($pageItems as $item): ?>
-        <div class="showcase-item-data" data-id="<?= $item['id'] ?>" data-title="<?= e($item['title']) ?>" data-img="<?= e($item['img'] ? APP_URL.'/public/'.$item['img'] : '') ?>"></div>
-        <?php endforeach; ?>
-      </div>
+          <div class="listing-card-body">
+            <div class="listing-card-title"><?= e($l['title']) ?></div>
+            <div class="listing-card-price"><i class="fas fa-tag"></i> <?= formatPrice($l['price']) ?></div>
+            <div class="condition-badge condition-badge-<?= strtolower($l['condition_type']) ?>">
+              <?= conditionBadge($l['condition_type']) ?>
+            </div>
+            <div class="listing-card-meta">
+              <div class="listing-card-seller">
+                <div class="listing-card-seller-avatar">
+                  <?php if (!empty($l['seller_avatar'])): ?>
+                    <img src="<?= APP_URL . '/public/' . e($l['seller_avatar']) ?>" alt="<?= e($l['seller_name']) ?>">
+                  <?php else: ?>
+                    <?= strtoupper(substr($l['seller_name'], 0, 1)) ?>
+                  <?php endif; ?>
+                </div>
+                <span><?= e(explode(' ', $l['seller_name'])[0]) ?></span>
+              </div>
+              <span><i class="fas fa-star"></i> <?= number_format($l['trust_score'], 1) ?></span>
+            </div>
+          </div>
+        </a>
       <?php endforeach; ?>
     </div>
   </div>
-  <?php endforeach; ?>
-</div>
-<?php endif; ?>
-
-<!-- Showcase Pagination at Bottom -->
-<?php if (!empty($showcaseCategories)): ?>
-<div class="showcase-footer-pagination">
-  <?php 
-    $totalShowcasePages = 0;
-    foreach ($showcaseCategories as $showcase) {
-      $totalShowcasePages = max($totalShowcasePages, $showcase['totalPages']);
-    }
-  ?>
-  <?php if ($totalShowcasePages > 1): ?>
-  <div class="showcase-page-indicators">
-    <?php for ($p = 0; $p < $totalShowcasePages; $p++): ?>
-    <button class="showcase-page-indicator <?= $p === 0 ? 'active' : '' ?>" data-page="<?= $p ?>" onclick="switchAllShowcasePages(<?= $p ?>)">
-      <?= $p + 1 ?>
-    </button>
-    <?php endfor; ?>
-  </div>
-  <?php endif; ?>
 </div>
 <?php endif; ?>
 
@@ -1922,60 +1916,6 @@ button, a {
   carousel.addEventListener('mouseenter', stopAutoplay);
   carousel.addEventListener('mouseleave', startAutoplay);
 })();
-
-// Showcase pagination - switch all showcases to a specific page
-window.switchAllShowcasePages = function(pageNum) {
-  const showcases = document.querySelectorAll('.category-showcase');
-  
-  showcases.forEach((showcase, idx) => {
-    const gridId = 'showcase-grid-' + idx;
-    const dataId = 'showcase-data-' + idx;
-    
-    const grid = document.getElementById(gridId);
-    const dataContainer = document.getElementById(dataId);
-    
-    if (!grid || !dataContainer) return;
-
-    // Get items for this page from hidden data
-    const pages = dataContainer.querySelectorAll('.showcase-page');
-    if (pageNum >= pages.length) return;
-
-    const pageItems = pages[pageNum].querySelectorAll('.showcase-item-data');
-    
-    // Clear grid
-    grid.innerHTML = '';
-    
-    // Add new items for this page
-    pageItems.forEach(itemData => {
-      const itemId = itemData.getAttribute('data-id');
-      const itemTitle = itemData.getAttribute('data-title');
-      const itemImg = itemData.getAttribute('data-img');
-      
-      const link = document.createElement('a');
-      link.href = '<?= APP_URL ?>/pages/listing.php?id=' + itemId;
-      link.className = 'showcase-item';
-      link.title = itemTitle;
-      
-      let imgHtml;
-      if (itemImg) {
-        imgHtml = '<img src="' + itemImg + '" alt="' + itemTitle + '" class="showcase-item-img" loading="lazy">';
-      } else {
-        imgHtml = '<div class="showcase-item-img" style="display: flex; align-items: center; justify-content: center; background: #f0f0f0;"><i class="fas fa-box" style="font-size: 28px; color: #ccc;"></i></div>';
-      }
-      
-      const titleTrunc = itemTitle.length > 30 ? itemTitle.substring(0, 30) + '...' : itemTitle;
-      link.innerHTML = imgHtml + '<span class="showcase-item-name">' + titleTrunc + '</span>';
-      
-      grid.appendChild(link);
-    });
-  });
-  
-  // Update pagination buttons
-  const buttons = document.querySelectorAll('.showcase-page-indicator');
-  buttons.forEach((btn, idx) => {
-    btn.classList.toggle('active', idx === pageNum);
-  });
-};
 </script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>
