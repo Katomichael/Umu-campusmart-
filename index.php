@@ -1872,8 +1872,6 @@ button, a {
 </div>
 <?php endif; ?>
 
-<?php include __DIR__ . '/includes/footer.php'; ?>
-
 <script>
 // Featured carousel functionality
 (function () {
