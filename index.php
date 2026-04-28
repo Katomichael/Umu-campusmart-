@@ -138,6 +138,43 @@ $featuredListings = Database::fetchAll(
      LIMIT 8"
 );
 
+// Fetch showcase categories and their popular items
+$showcaseCategories = [];
+if (!empty($categories)) {
+    // Get top 4 categories by listing count
+    $topCatIds = Database::fetchAll(
+        "SELECT c.id, c.name, c.slug, COUNT(l.id) AS count
+         FROM categories c
+         LEFT JOIN listings l ON c.id = l.category_id AND l.status = 'active'
+         GROUP BY c.id
+         ORDER BY count DESC
+         LIMIT 4"
+    );
+    
+    // For each category, get top 4 items
+    foreach ($topCatIds as $cat) {
+        $items = Database::fetchAll(
+            "SELECT l.id, l.title, l.price, 
+                    (SELECT image_path FROM listing_images WHERE listing_id=l.id AND is_primary=1 LIMIT 1) AS img
+             FROM listings l
+             WHERE l.status='active' AND l.category_id = ?
+             ORDER BY l.view_count DESC, l.created_at DESC
+             LIMIT 4",
+            [$cat['id']]
+        );
+        
+        if (!empty($items)) {
+            $showcaseCategories[] = [
+                'id' => $cat['id'],
+                'name' => $cat['name'],
+                'slug' => $cat['slug'],
+                'count' => $cat['count'],
+                'items' => $items
+            ];
+        }
+    }
+}
+
 $pageTitle = 'Browse Listings';
 include __DIR__ . '/includes/header.php';
 ?>
@@ -1337,6 +1374,178 @@ html {
 button, a {
     transition: all 0.2s ease;
 }
+
+/* ── Category Showcase Sections ──────────────────────── */
+.category-showcase-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    margin-top: 40px;
+    margin-bottom: 40px;
+}
+
+.category-showcase {
+    background: var(--surface);
+    border-radius: 14px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    overflow: hidden;
+}
+
+.showcase-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid var(--border);
+}
+
+.showcase-header h3 {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--primary);
+    margin: 0;
+    flex: 1;
+}
+
+.showcase-header i {
+    font-size: 22px;
+    color: var(--accent);
+}
+
+.showcase-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.showcase-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 10px;
+    background: rgba(151, 14, 14, 0.02);
+    text-decoration: none;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.showcase-item:hover {
+    background: rgba(151, 14, 14, 0.08);
+    border-color: var(--primary);
+    transform: translateY(-2px);
+}
+
+.showcase-item-img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 8px;
+    background: #f0f0f0;
+}
+
+.showcase-item-name {
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.3;
+    color: var(--text);
+}
+
+.showcase-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 14px;
+    text-decoration: none;
+    padding: 8px 12px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.showcase-link:hover {
+    background: rgba(151, 14, 14, 0.08);
+    gap: 10px;
+}
+
+@media (max-width: 1024px) {
+    .category-showcase-container {
+        grid-template-columns: 1fr;
+        gap: 20px;
+        margin-top: 30px;
+        margin-bottom: 30px;
+    }
+}
+
+@media (max-width: 768px) {
+    .category-showcase {
+        padding: 18px;
+    }
+
+    .showcase-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+    }
+
+    .showcase-header h3 {
+        font-size: 16px;
+    }
+
+    .showcase-item {
+        padding: 8px;
+    }
+
+    .showcase-item-name {
+        font-size: 11px;
+    }
+}
+
+@media (max-width: 480px) {
+    .category-showcase-container {
+        grid-template-columns: 1fr;
+        gap: 16px;
+        margin-top: 24px;
+        margin-bottom: 24px;
+    }
+
+    .category-showcase {
+        padding: 14px;
+    }
+
+    .showcase-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .showcase-header h3 {
+        font-size: 15px;
+    }
+
+    .showcase-item {
+        padding: 6px;
+    }
+
+    .showcase-item-name {
+        font-size: 10px;
+    }
+
+    .showcase-link {
+        font-size: 12px;
+        padding: 6px 10px;
+    }
+}
 </style>
 
   <!-- Hero Section -->
@@ -1401,6 +1610,39 @@ button, a {
       <?php endforeach; ?>
     </div>
     <?php endif; ?>
+  </div>
+  <?php endif; ?>
+
+  <!-- Category Showcase Sections -->
+  <?php if (!empty($showcaseCategories)): ?>
+  <div class="category-showcase-container">
+    <?php foreach ($showcaseCategories as $showcase): ?>
+    <div class="category-showcase">
+      <div class="showcase-header">
+        <i class="<?= getCategoryIcon($showcase['slug']) ?>"></i>
+        <h3><?= e($showcase['name']) ?></h3>
+      </div>
+      
+      <div class="showcase-grid">
+        <?php foreach ($showcase['items'] as $item): ?>
+        <a href="<?= APP_URL ?>/pages/listing.php?id=<?= $item['id'] ?>" class="showcase-item" title="<?= e($item['title']) ?>">
+          <?php if ($item['img']): ?>
+            <img src="<?= APP_URL.'/public/'.e($item['img']) ?>" alt="<?= e($item['title']) ?>" class="showcase-item-img" loading="lazy">
+          <?php else: ?>
+            <div class="showcase-item-img" style="display: flex; align-items: center; justify-content: center; background: #f0f0f0;">
+              <i class="fas fa-box" style="font-size: 28px; color: #ccc;"></i>
+            </div>
+          <?php endif; ?>
+          <span class="showcase-item-name"><?= e(substr($item['title'], 0, 30)) . (strlen($item['title']) > 30 ? '...' : '') ?></span>
+        </a>
+        <?php endforeach; ?>
+      </div>
+
+      <a href="<?= buildQueryString(['category' => $showcase['slug'], 'subcat' => '', 'search' => '', 'condition' => '', 'min' => '', 'max' => '']) ?>" class="showcase-link">
+        <i class="fas fa-arrow-right"></i> Explore more
+      </a>
+    </div>
+    <?php endforeach; ?>
   </div>
   <?php endif; ?>
 
