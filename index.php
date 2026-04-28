@@ -1613,39 +1613,6 @@ button, a {
   </div>
   <?php endif; ?>
 
-  <!-- Category Showcase Sections -->
-  <?php if (!empty($showcaseCategories)): ?>
-  <div class="category-showcase-container">
-    <?php foreach ($showcaseCategories as $showcase): ?>
-    <div class="category-showcase">
-      <div class="showcase-header">
-        <i class="<?= getCategoryIcon($showcase['slug']) ?>"></i>
-        <h3><?= e($showcase['name']) ?></h3>
-      </div>
-      
-      <div class="showcase-grid">
-        <?php foreach ($showcase['items'] as $item): ?>
-        <a href="<?= APP_URL ?>/pages/listing.php?id=<?= $item['id'] ?>" class="showcase-item" title="<?= e($item['title']) ?>">
-          <?php if ($item['img']): ?>
-            <img src="<?= APP_URL.'/public/'.e($item['img']) ?>" alt="<?= e($item['title']) ?>" class="showcase-item-img" loading="lazy">
-          <?php else: ?>
-            <div class="showcase-item-img" style="display: flex; align-items: center; justify-content: center; background: #f0f0f0;">
-              <i class="fas fa-box" style="font-size: 28px; color: #ccc;"></i>
-            </div>
-          <?php endif; ?>
-          <span class="showcase-item-name"><?= e(substr($item['title'], 0, 30)) . (strlen($item['title']) > 30 ? '...' : '') ?></span>
-        </a>
-        <?php endforeach; ?>
-      </div>
-
-      <a href="<?= buildQueryString(['category' => $showcase['slug'], 'subcat' => '', 'search' => '', 'condition' => '', 'min' => '', 'max' => '']) ?>" class="showcase-link">
-        <i class="fas fa-arrow-right"></i> Explore more
-      </a>
-    </div>
-    <?php endforeach; ?>
-  </div>
-  <?php endif; ?>
-
   <div class="sidebar-overlay" id="sidebar-overlay"></div>
 
   <!-- Main Layout -->
@@ -1782,6 +1749,40 @@ button, a {
     </div>
   </div>
 </div>
+
+<!-- Category Showcase Sections -->
+<?php if (!empty($showcaseCategories)): ?>
+<div class="category-showcase-container">
+  <?php foreach ($showcaseCategories as $showcase): ?>
+  <div class="category-showcase">
+    <div class="showcase-header">
+      <i class="<?= getCategoryIcon($showcase['slug']) ?>"></i>
+      <h3><?= e($showcase['name']) ?></h3>
+    </div>
+    
+    <div class="showcase-grid">
+      <?php foreach ($showcase['items'] as $item): ?>
+      <a href="<?= APP_URL ?>/pages/listing.php?id=<?= $item['id'] ?>" class="showcase-item" title="<?= e($item['title']) ?>">
+        <?php if ($item['img']): ?>
+          <img src="<?= APP_URL.'/public/'.e($item['img']) ?>" alt="<?= e($item['title']) ?>" class="showcase-item-img" loading="lazy">
+        <?php else: ?>
+          <div class="showcase-item-img" style="display: flex; align-items: center; justify-content: center; background: #f0f0f0;">
+            <i class="fas fa-box" style="font-size: 28px; color: #ccc;"></i>
+          </div>
+        <?php endif; ?>
+        <span class="showcase-item-name"><?= e(substr($item['title'], 0, 30)) . (strlen($item['title']) > 30 ? '...' : '') ?></span>
+      </a>
+      <?php endforeach; ?>
+    </div>
+
+    <a href="<?= buildQueryString(['category' => $showcase['slug'], 'subcat' => '', 'search' => '', 'condition' => '', 'min' => '', 'max' => '']) ?>" class="showcase-link">
+      <i class="fas fa-arrow-right"></i> Explore more
+    </a>
+  </div>
+  <?php endforeach; ?>
+</div>
+<?php endif; ?>
+
 <script>
 // Featured carousel functionality
 (function () {
