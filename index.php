@@ -1488,6 +1488,50 @@ button, a {
     gap: 10px;
 }
 
+.showcase-footer-pagination {
+    max-width: 1400px;
+    margin: 40px auto 0;
+    padding: 24px 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.showcase-page-indicators {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.showcase-page-indicator {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.showcase-page-indicator:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.showcase-page-indicator.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+    box-shadow: 0 4px 12px rgba(151,14,14,0.2);
+}
+
 @media (max-width: 1024px) {
     .category-showcase-container {
         grid-template-columns: 1fr;
@@ -1791,12 +1835,43 @@ button, a {
     <a href="<?= buildQueryString(['category' => $showcase['slug'], 'subcat' => '', 'search' => '', 'condition' => '', 'min' => '', 'max' => '']) ?>" class="showcase-link">
       <i class="fas fa-arrow-right"></i> Explore more
     </a>
+
+    <!-- Store paginated items data (hidden) -->
+    <div style="display: none;" id="showcase-data-<?= $idx ?>">
+      <?php foreach ($showcase['paginatedItems'] as $pageIdx => $pageItems): ?>
+      <div class="showcase-page" data-page="<?= $pageIdx ?>">
+        <?php foreach ($pageItems as $item): ?>
+        <div class="showcase-item-data" data-id="<?= $item['id'] ?>" data-title="<?= e($item['title']) ?>" data-img="<?= e($item['img'] ? APP_URL.'/public/'.$item['img'] : '') ?>"></div>
+        <?php endforeach; ?>
+      </div>
+      <?php endforeach; ?>
+    </div>
   </div>
   <?php endforeach; ?>
 </div>
+
+<!-- Showcase Pagination at Bottom -->
+<?php if (!empty($showcaseCategories)): ?>
+<div class="showcase-footer-pagination">
+  <?php 
+    $totalShowcasePages = 0;
+    foreach ($showcaseCategories as $showcase) {
+      $totalShowcasePages = max($totalShowcasePages, $showcase['totalPages']);
+    }
+  ?>
+  <?php if ($totalShowcasePages > 1): ?>
+  <div class="showcase-page-indicators">
+    <?php for ($p = 0; $p < $totalShowcasePages; $p++): ?>
+    <button class="showcase-page-indicator <?= $p === 0 ? 'active' : '' ?>" data-page="<?= $p ?>" onclick="switchAllShowcasePages(<?= $p ?>)">
+      <?= $p + 1 ?>
+    </button>
+    <?php endfor; ?>
+  </div>
+  <?php endif; ?>
+</div>
 <?php endif; ?>
 
-<script>
+<?php include __DIR__ . '/includes/footer.php'; ?>
 // Featured carousel functionality
 (function () {
   const carousel = document.getElementById('featured-carousel');
@@ -1846,6 +1921,60 @@ button, a {
   carousel.addEventListener('mouseenter', stopAutoplay);
   carousel.addEventListener('mouseleave', startAutoplay);
 })();
+
+// Showcase pagination - switch all showcases to a specific page
+window.switchAllShowcasePages = function(pageNum) {
+  const showcases = document.querySelectorAll('.category-showcase');
+  
+  showcases.forEach((showcase, idx) => {
+    const gridId = 'showcase-grid-' + idx;
+    const dataId = 'showcase-data-' + idx;
+    
+    const grid = document.getElementById(gridId);
+    const dataContainer = document.getElementById(dataId);
+    
+    if (!grid || !dataContainer) return;
+
+    // Get items for this page from hidden data
+    const pages = dataContainer.querySelectorAll('.showcase-page');
+    if (pageNum >= pages.length) return;
+
+    const pageItems = pages[pageNum].querySelectorAll('.showcase-item-data');
+    
+    // Clear grid
+    grid.innerHTML = '';
+    
+    // Add new items for this page
+    pageItems.forEach(itemData => {
+      const itemId = itemData.getAttribute('data-id');
+      const itemTitle = itemData.getAttribute('data-title');
+      const itemImg = itemData.getAttribute('data-img');
+      
+      const link = document.createElement('a');
+      link.href = '<?= APP_URL ?>/pages/listing.php?id=' + itemId;
+      link.className = 'showcase-item';
+      link.title = itemTitle;
+      
+      let imgHtml;
+      if (itemImg) {
+        imgHtml = '<img src="' + itemImg + '" alt="' + itemTitle + '" class="showcase-item-img" loading="lazy">';
+      } else {
+        imgHtml = '<div class="showcase-item-img" style="display: flex; align-items: center; justify-content: center; background: #f0f0f0;"><i class="fas fa-box" style="font-size: 28px; color: #ccc;"></i></div>';
+      }
+      
+      const titleTrunc = itemTitle.length > 30 ? itemTitle.substring(0, 30) + '...' : itemTitle;
+      link.innerHTML = imgHtml + '<span class="showcase-item-name">' + titleTrunc + '</span>';
+      
+      grid.appendChild(link);
+    });
+  });
+  
+  // Update pagination buttons
+  const buttons = document.querySelectorAll('.showcase-page-indicator');
+  buttons.forEach((btn, idx) => {
+    btn.classList.toggle('active', idx === pageNum);
+  });
+};
 </script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>
