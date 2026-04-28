@@ -1872,6 +1872,8 @@ button, a {
 <?php endif; ?>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>
+
+<script>
 // Featured carousel functionality
 (function () {
   const carousel = document.getElementById('featured-carousel');
