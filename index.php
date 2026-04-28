@@ -151,7 +151,7 @@ if (!empty($categories)) {
          LIMIT 4"
     );
     
-    // For each category, get top 4 items
+    // For each category, get top 6 items
     foreach ($topCatIds as $cat) {
         $items = Database::fetchAll(
             "SELECT l.id, l.title, l.price, 
@@ -159,17 +159,25 @@ if (!empty($categories)) {
              FROM listings l
              WHERE l.status='active' AND l.category_id = ?
              ORDER BY l.view_count DESC, l.created_at DESC
-             LIMIT 4",
+             LIMIT 6",
             [$cat['id']]
         );
         
         if (!empty($items)) {
+            // Paginate items: 3 per page
+            $itemsPerPage = 3;
+            $totalPages = ceil(count($items) / $itemsPerPage);
+            $paginatedItems = array_chunk($items, $itemsPerPage);
+            
             $showcaseCategories[] = [
                 'id' => $cat['id'],
                 'name' => $cat['name'],
                 'slug' => $cat['slug'],
                 'count' => $cat['count'],
-                'items' => $items
+                'items' => $items,
+                'paginatedItems' => $paginatedItems,
+                'totalPages' => $totalPages,
+                'itemsPerPage' => $itemsPerPage
             ];
         }
     }
@@ -1420,7 +1428,7 @@ button, a {
 
 .showcase-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 12px;
     margin-bottom: 16px;
 }
@@ -1480,6 +1488,43 @@ button, a {
     gap: 10px;
 }
 
+.showcase-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+
+.showcase-page-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.showcase-page-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.showcase-page-btn.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+
 @media (max-width: 1024px) {
     .category-showcase-container {
         grid-template-columns: 1fr;
@@ -1522,6 +1567,11 @@ button, a {
 
     .category-showcase {
         padding: 14px;
+    }
+
+    .showcase-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
     }
 
     .showcase-grid {
@@ -1753,15 +1803,15 @@ button, a {
 <!-- Category Showcase Sections -->
 <?php if (!empty($showcaseCategories)): ?>
 <div class="category-showcase-container">
-  <?php foreach ($showcaseCategories as $showcase): ?>
+  <?php foreach ($showcaseCategories as $idx => $showcase): ?>
   <div class="category-showcase">
     <div class="showcase-header">
       <i class="<?= getCategoryIcon($showcase['slug']) ?>"></i>
       <h3><?= e($showcase['name']) ?></h3>
     </div>
     
-    <div class="showcase-grid">
-      <?php foreach ($showcase['items'] as $item): ?>
+    <div class="showcase-grid" id="showcase-grid-<?= $idx ?>">
+      <?php foreach ($showcase['paginatedItems'][0] as $item): ?>
       <a href="<?= APP_URL ?>/pages/listing.php?id=<?= $item['id'] ?>" class="showcase-item" title="<?= e($item['title']) ?>">
         <?php if ($item['img']): ?>
           <img src="<?= APP_URL.'/public/'.e($item['img']) ?>" alt="<?= e($item['title']) ?>" class="showcase-item-img" loading="lazy">
@@ -1775,9 +1825,32 @@ button, a {
       <?php endforeach; ?>
     </div>
 
-    <a href="<?= buildQueryString(['category' => $showcase['slug'], 'subcat' => '', 'search' => '', 'condition' => '', 'min' => '', 'max' => '']) ?>" class="showcase-link">
-      <i class="fas fa-arrow-right"></i> Explore more
-    </a>
+    <!-- Store paginated items data -->
+    <div style="display: none;" id="showcase-data-<?= $idx ?>">
+      <?php foreach ($showcase['paginatedItems'] as $pageIdx => $pageItems): ?>
+      <div class="showcase-page" data-page="<?= $pageIdx ?>">
+        <?php foreach ($pageItems as $item): ?>
+        <div class="showcase-item-data" data-id="<?= $item['id'] ?>" data-title="<?= e($item['title']) ?>" data-img="<?= e($item['img'] ? APP_URL.'/public/'.$item['img'] : '') ?>"></div>
+        <?php endforeach; ?>
+      </div>
+      <?php endforeach; ?>
+    </div>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+      <a href="<?= buildQueryString(['category' => $showcase['slug'], 'subcat' => '', 'search' => '', 'condition' => '', 'min' => '', 'max' => '']) ?>" class="showcase-link">
+        <i class="fas fa-arrow-right"></i> Explore more
+      </a>
+      
+      <?php if ($showcase['totalPages'] > 1): ?>
+      <div class="showcase-pagination" id="pagination-<?= $idx ?>">
+        <?php for ($p = 0; $p < $showcase['totalPages']; $p++): ?>
+        <button class="showcase-page-btn <?= $p === 0 ? 'active' : '' ?>" data-page="<?= $p ?>" onclick="switchShowcasePage(<?= $idx ?>, <?= $p ?>)">
+          <?= $p + 1 ?>
+        </button>
+        <?php endfor; ?>
+      </div>
+      <?php endif; ?>
+    </div>
   </div>
   <?php endforeach; ?>
 </div>
@@ -1833,6 +1906,60 @@ button, a {
   carousel.addEventListener('mouseenter', stopAutoplay);
   carousel.addEventListener('mouseleave', startAutoplay);
 })();
+
+// Showcase pagination functionality
+window.switchShowcasePage = function(showcaseIdx, pageNum) {
+  const gridId = 'showcase-grid-' + showcaseIdx;
+  const dataId = 'showcase-data-' + showcaseIdx;
+  const paginationId = 'pagination-' + showcaseIdx;
+  
+  const grid = document.getElementById(gridId);
+  const dataContainer = document.getElementById(dataId);
+  const pagination = document.getElementById(paginationId);
+  
+  if (!grid || !dataContainer) return;
+
+  // Get items for this page
+  const pages = dataContainer.querySelectorAll('.showcase-page');
+  if (pageNum >= pages.length) return;
+
+  const pageItems = pages[pageNum].querySelectorAll('.showcase-item-data');
+  
+  // Clear grid
+  grid.innerHTML = '';
+  
+  // Add new items
+  pageItems.forEach(itemData => {
+    const itemId = itemData.getAttribute('data-id');
+    const itemTitle = itemData.getAttribute('data-title');
+    const itemImg = itemData.getAttribute('data-img');
+    
+    const link = document.createElement('a');
+    link.href = '<?= APP_URL ?>/pages/listing.php?id=' + itemId;
+    link.className = 'showcase-item';
+    link.title = itemTitle;
+    
+    let imgHtml;
+    if (itemImg) {
+      imgHtml = '<img src="' + itemImg + '" alt="' + itemTitle + '" class="showcase-item-img" loading="lazy">';
+    } else {
+      imgHtml = '<div class="showcase-item-img" style="display: flex; align-items: center; justify-content: center; background: #f0f0f0;"><i class="fas fa-box" style="font-size: 28px; color: #ccc;"></i></div>';
+    }
+    
+    const titleTrunc = itemTitle.length > 30 ? itemTitle.substring(0, 30) + '...' : itemTitle;
+    link.innerHTML = imgHtml + '<span class="showcase-item-name">' + titleTrunc + '</span>';
+    
+    grid.appendChild(link);
+  });
+  
+  // Update pagination buttons
+  if (pagination) {
+    const buttons = pagination.querySelectorAll('.showcase-page-btn');
+    buttons.forEach((btn, idx) => {
+      btn.classList.toggle('active', idx === pageNum);
+    });
+  }
+};
 </script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>
