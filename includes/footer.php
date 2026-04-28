@@ -30,17 +30,7 @@
           </ul>
         </div>
 
-        <div class="footer-col">
-          <div class="footer-col-header">
-            <i class="fas fa-shield-alt"></i>
-            <h4>Trust & Safety</h4>
-          </div>
-          <ul class="footer-links">
-            <li><a href="<?= APP_URL ?>/pages/about.php"><i class="fas fa-lock"></i> Privacy Policy</a></li>
-            <li><a href="<?= APP_URL ?>/pages/about.php"><i class="fas fa-balance-scale"></i> Fair Policy</a></li>
-            <li><a href="<?= APP_URL ?>/pages/about.php"><i class="fas fa-bug"></i> Report Issue</a></li>
-          </ul>
-        </div>
+
       </div>
 
       <div class="footer-bottom">
