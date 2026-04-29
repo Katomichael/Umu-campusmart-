@@ -1817,16 +1817,16 @@ button, a {
                   <?= conditionBadge($l['condition_type']) ?>
                 </div>
                 <div class="listing-card-meta">
-                  <div class="listing-card-seller">
-                    <div class="listing-card-seller-avatar">
-                      <?php if (!empty($l['seller_avatar'])): ?>
-                        <img src="<?= APP_URL . '/public/' . e($l['seller_avatar']) ?>" alt="<?= e($l['seller_name']) ?>">
-                      <?php else: ?>
-                        <?= strtoupper(substr($l['seller_name'], 0, 1)) ?>
-                      <?php endif; ?>
-                    </div>
-                    <span><?= e(explode(' ', $l['seller_name'])[0]) ?></span>
-                  </div>
+                                    <div class="listing-card-seller">
+                                        <div class="listing-card-seller-avatar">
+                                            <?php if (!empty($l['seller_avatar'])): ?>
+                                                <img src="<?= APP_URL . '/public/' . e($l['seller_avatar']) ?>" alt="<?= e($l['seller_name']) ?>">
+                                            <?php else: ?>
+                                                <?= strtoupper(substr($l['seller_name'], 0, 1)) ?>
+                                            <?php endif; ?>
+                                        </div>
+                                        <span><?= e(explode(' ', $l['seller_name'])[0]) ?></span>
+                                    </div>
                   <span><i class="fas fa-star"></i> <?= number_format($l['trust_score'], 1) ?></span>
                 </div>
               </div>
@@ -1866,16 +1866,16 @@ button, a {
               <?= conditionBadge($l['condition_type']) ?>
             </div>
             <div class="listing-card-meta">
-              <div class="listing-card-seller">
-                <div class="listing-card-seller-avatar">
-                  <?php if (!empty($l['seller_avatar'])): ?>
-                    <img src="<?= APP_URL . '/public/' . e($l['seller_avatar']) ?>" alt="<?= e($l['seller_name']) ?>">
-                  <?php else: ?>
-                    <?= strtoupper(substr($l['seller_name'], 0, 1)) ?>
-                  <?php endif; ?>
-                </div>
-                <span><?= e(explode(' ', $l['seller_name'])[0]) ?></span>
-              </div>
+                            <div class="listing-card-seller">
+                                <div class="listing-card-seller-avatar">
+                                    <?php if (!empty($l['seller_avatar'])): ?>
+                                        <img src="<?= APP_URL . '/public/' . e($l['seller_avatar']) ?>" alt="<?= e($l['seller_name']) ?>">
+                                    <?php else: ?>
+                                        <?= strtoupper(substr($l['seller_name'], 0, 1)) ?>
+                                    <?php endif; ?>
+                                </div>
+                                <span><?= e(explode(' ', $l['seller_name'])[0]) ?></span>
+                            </div>
               <span><i class="fas fa-star"></i> <?= number_format($l['trust_score'], 1) ?></span>
             </div>
           </div>

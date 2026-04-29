@@ -73,6 +73,16 @@ include __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="container" style="max-width:900px;padding:28px 16px">
+  <div class="layout-with-sidebar">
+    <aside class="sidebar">
+      <?php
+        $currentCategorySlug = '';
+        $currentSubcat = '';
+        include __DIR__ . '/../includes/categories_sidebar_categories.php';
+      ?>
+    </aside>
+
+    <div style="flex:1;max-width:900px">
   <a href="javascript:history.back()" style="color:var(--muted);font-size:14px">← Back</a>
 
   <!-- Profile header -->
@@ -212,6 +222,8 @@ include __DIR__ . '/../includes/header.php';
     </div>
   <?php endif; ?>
 
+    </div>
+  </div>
 </div>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

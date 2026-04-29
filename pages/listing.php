@@ -381,7 +381,8 @@ include __DIR__ . '/../includes/header.php';
             <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px">
               <p style="font-size:11px;font-weight:800;color:var(--muted);margin-bottom:16px">SELLER</p>
               
-              <div style="display:flex;gap:12px;margin-bottom:18px;align-items:center">
+              <a href="<?= APP_URL ?>/pages/user_profile.php?id=<?= $listing['seller_id'] ?>"
+                 style="display:flex;gap:12px;margin-bottom:18px;align-items:center;text-decoration:none;color:inherit">
                 <div class="seller-avatar-large">
                   <?php if (!empty($listing['seller_avatar'])): ?>
                     <img src="<?= APP_URL . '/public/' . e($listing['seller_avatar']) ?>" alt="<?= e($listing['seller_name']) ?>">
@@ -390,10 +391,9 @@ include __DIR__ . '/../includes/header.php';
                   <?php endif; ?>
                 </div>
                 <div>
-                  <a href="<?= APP_URL ?>/pages/user_profile.php?id=<?= $listing['seller_id'] ?>"
-                     style="font-weight:800;font-size:16px;color:var(--primary);text-decoration:none">
+                  <div style="font-weight:800;font-size:16px;color:var(--primary)">
                     <?= e($listing['seller_name']) ?>
-                  </a>
+                  </div>
                   <p style="font-size:12px;color:var(--muted);margin-top:4px">
                     <?php if ($listing['seller_course']): ?>
                       <?= e($listing['seller_course']) ?><br>
@@ -403,7 +403,7 @@ include __DIR__ . '/../includes/header.php';
                     <?php endif; ?>
                   </p>
                 </div>
-              </div>
+              </a>
 
               <?php if ($me && !$isSeller): ?>
                 <button class="btn btn-outline btn-full" style="padding:10px;font-size:13px;color:#e74c3c"
