@@ -13,98 +13,108 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
         $errors[] = 'Invalid form submission.';
     } else {
-        // Read and normalize inputs.
-        $form['full_name']     = trim($_POST['full_name']     ?? '');
-    $form['email']         = strtolower(trim($_POST['email'] ?? ''));
-        $form['student_id']    = strtoupper(trim($_POST['student_id'] ?? ''));
-        $form['course']        = trim($_POST['course']        ?? '');
-        $form['year_of_study'] = (int)($_POST['year_of_study']?? 1);
-        $form['phone']         = trim($_POST['phone']         ?? '');
-        $password              = $_POST['password']           ?? '';
+        // Check rate limit
+        $rateLimitCheck = checkRateLimit('register');
+        if ($rateLimitCheck) {
+            $minutesLeft = ceil(($rateLimitCheck['reset_at'] - time()) / 60);
+            $errors[] = "Too many registration attempts. Try again in {$minutesLeft} minute" . ($minutesLeft > 1 ? 's' : '') . '.';
+        } else {
+            // Read and normalize inputs.
+            $form['full_name']     = trim($_POST['full_name']     ?? '');
+        $form['email']         = strtolower(trim($_POST['email'] ?? ''));
+            $form['student_id']    = strtoupper(trim($_POST['student_id'] ?? ''));
+            $form['course']        = trim($_POST['course']        ?? '');
+            $form['year_of_study'] = (int)($_POST['year_of_study']?? 1);
+            $form['phone']         = trim($_POST['phone']         ?? '');
+            $password              = $_POST['password']           ?? '';
 
-    // Validate inputs.
-    if (!$form['full_name']) {
-      $errors[] = 'Full name is required.';
-    } elseif (mb_strlen($form['full_name']) > 100) {
-      $errors[] = 'Full name is too long.';
-    }
-
-    if (!$form['email']) {
-      $errors[] = 'Email is required.';
-    } elseif (!filter_var($form['email'], FILTER_VALIDATE_EMAIL)) {
-      $errors[] = 'Enter a valid email address.';
-    } elseif (!isValidUMUEmail($form['email'])) {
-      $errors[] = 'Only @' . UNIVERSITY_DOMAIN . ' emails are accepted.';
-    }
-
-    if ($form['student_id'] !== '') {
-      // Expected format: 2023-B071-22673
-      if (!preg_match('/^\d{4}-B\d{3}-\d{5}$/', $form['student_id'])) {
-        $errors[] = 'Student ID must be in the format 2023-B071-22673.';
-      }
-    }
-
-    if ($form['course'] !== '' && mb_strlen($form['course']) > 100) {
-      $errors[] = 'Course / Programme is too long.';
-    }
-
-    if ($form['year_of_study'] < 1 || $form['year_of_study'] > 5) {
-      $errors[] = 'Year of study must be between 1 and 5.';
-    }
-
-    if ($form['phone'] !== '') {
-      if (mb_strlen($form['phone']) > 20) {
-        $errors[] = 'Phone number is too long.';
-      } elseif (!preg_match('/^[0-9+()\s-]+$/', $form['phone'])) {
-        $errors[] = 'Phone number must contain numbers only (and +, spaces, -, parentheses).';
-      } else {
-        $digits = preg_replace('/\D+/', '', $form['phone']);
-        if (strlen($digits) < 7) {
-          $errors[] = 'Phone number looks too short.';
+        // Validate inputs.
+        if (!$form['full_name']) {
+          $errors[] = 'Full name is required.';
+        } elseif (mb_strlen($form['full_name']) > 100) {
+          $errors[] = 'Full name is too long.';
         }
-      }
-    }
 
-    if (strlen($password) < 6) {
-      $errors[] = 'Password must be at least 6 characters.';
-    }
+        if (!$form['email']) {
+          $errors[] = 'Email is required.';
+        } elseif (!filter_var($form['email'], FILTER_VALIDATE_EMAIL)) {
+          $errors[] = 'Enter a valid email address.';
+        } elseif (!isValidUMUEmail($form['email'])) {
+          $errors[] = 'Only @' . UNIVERSITY_DOMAIN . ' emails are accepted.';
+        }
 
-        // If validation passed, ensure email is unique then create the account.
-        if (!$errors) {
-          $existing = Database::fetchOne('SELECT id FROM users WHERE email = ? LIMIT 1', [$form['email']]);
-          if ($existing) {
-            $errors[] = 'This email is already registered.';
+        if ($form['student_id'] !== '') {
+          // Expected format: 2023-B071-22673
+          if (!preg_match('/^\d{4}-B\d{3}-\d{5}$/', $form['student_id'])) {
+            $errors[] = 'Student ID must be in the format 2023-B071-22673.';
+          }
+        }
+
+        if ($form['course'] !== '' && mb_strlen($form['course']) > 100) {
+          $errors[] = 'Course / Programme is too long.';
+        }
+
+        if ($form['year_of_study'] < 1 || $form['year_of_study'] > 5) {
+          $errors[] = 'Year of study must be between 1 and 5.';
+        }
+
+        if ($form['phone'] !== '') {
+          if (mb_strlen($form['phone']) > 20) {
+            $errors[] = 'Phone number is too long.';
+          } elseif (!preg_match('/^[0-9+()\s-]+$/', $form['phone'])) {
+            $errors[] = 'Phone number must contain numbers only (and +, spaces, -, parentheses).';
           } else {
-            try {
-              $id = Database::insert(
-                'INSERT INTO users (full_name, email, password_hash, student_id, course, year_of_study, phone)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)',
-                [
-                  $form['full_name'], $form['email'], hashPassword($password),
-                  $form['student_id'] ?: null, $form['course'] ?: null,
-                  $form['year_of_study'], $form['phone'] ?: null,
-                ]
-              );
-
-              // Non-blocking welcome email.
-              sendWelcomeEmail($form['email'], $form['full_name']);
-
-              sessionLogin($id);
-              flash('success', 'Welcome to CampusMart! ');
-              redirect('/index.php');
-            } catch (PDOException $e) {
-              // Friendly messages for common unique constraint violations.
-              $msg = $e->getMessage();
-              if (stripos($msg, 'users.email') !== false) {
-                $errors[] = 'This email is already registered.';
-              } elseif (stripos($msg, 'users.student_id') !== false) {
-                $errors[] = 'This student ID is already registered.';
-              } else {
-                $errors[] = 'Registration failed. Please try again.';
-                error_log('Register failed: ' . $msg);
-              }
+            $digits = preg_replace('/\D+/', '', $form['phone']);
+            if (strlen($digits) < 7) {
+              $errors[] = 'Phone number looks too short.';
             }
           }
+        }
+
+        if (strlen($password) < 6) {
+          $errors[] = 'Password must be at least 6 characters.';
+        }
+
+            // If validation passed, ensure email is unique then create the account.
+            if (!$errors) {
+              $existing = Database::fetchOne('SELECT id FROM users WHERE email = ? LIMIT 1', [$form['email']]);
+              if ($existing) {
+                recordFailedAttempt('register');
+                $errors[] = 'This email is already registered.';
+              } else {
+                try {
+                  $id = Database::insert(
+                    'INSERT INTO users (full_name, email, password_hash, student_id, course, year_of_study, phone)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    [
+                      $form['full_name'], $form['email'], hashPassword($password),
+                      $form['student_id'] ?: null, $form['course'] ?: null,
+                      $form['year_of_study'], $form['phone'] ?: null,
+                    ]
+                  );
+
+                  // Non-blocking welcome email.
+                  sendWelcomeEmail($form['email'], $form['full_name']);
+
+                  resetRateLimit('register');
+                  sessionLogin($id);
+                  flash('success', 'Welcome to CampusMart! ');
+                  redirect('/index.php');
+                } catch (PDOException $e) {
+                  recordFailedAttempt('register');
+                  // Friendly messages for common unique constraint violations.
+                  $msg = $e->getMessage();
+                  if (stripos($msg, 'users.email') !== false) {
+                    $errors[] = 'This email is already registered.';
+                  } elseif (stripos($msg, 'users.student_id') !== false) {
+                    $errors[] = 'This student ID is already registered.';
+                  } else {
+                    $errors[] = 'Registration failed. Please try again.';
+                    error_log('Register failed: ' . $msg);
+                  }
+                }
+              }
+            }
         }
     }
 }

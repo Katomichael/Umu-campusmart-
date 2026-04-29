@@ -10,19 +10,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
         $error = 'Invalid form submission.';
     } else {
-        $email    = trim($_POST['email']    ?? '');
-        $password = $_POST['password'] ?? '';
-
-        $user = Database::fetchOne('SELECT * FROM users WHERE email = ?', [$email]);
-
-        if (!$user || !verifyPassword($password, $user['password_hash'])) {
-            $error = 'Wrong email or password.';
-        } elseif ($user['is_banned']) {
-            $error = 'Your account has been suspended. Contact admin.';
+        // Check rate limit
+        $rateLimitCheck = checkRateLimit('login');
+        if ($rateLimitCheck) {
+            $minutesLeft = ceil(($rateLimitCheck['reset_at'] - time()) / 60);
+            $error = "Too many failed login attempts. Try again in {$minutesLeft} minute" . ($minutesLeft > 1 ? 's' : '') . '.';
         } else {
-            sessionLogin($user['id']);
-            flash('success', 'Welcome back, ' . $user['full_name'] . '! ');
-            redirect($user['role'] === 'admin' ? '/admin/dashboard.php' : '/index.php');
+            $email    = trim($_POST['email']    ?? '');
+            $password = $_POST['password'] ?? '';
+
+            $user = Database::fetchOne('SELECT * FROM users WHERE email = ?', [$email]);
+
+            if (!$user || !verifyPassword($password, $user['password_hash'])) {
+                recordFailedAttempt('login');
+                $error = 'Wrong email or password.';
+            } elseif ($user['is_banned']) {
+                recordFailedAttempt('login');
+                $error = 'Your account has been suspended. Contact admin.';
+            } else {
+                resetRateLimit('login');
+                sessionLogin($user['id']);
+                flash('success', 'Welcome back, ' . $user['full_name'] . '! ');
+                redirect($user['role'] === 'admin' ? '/admin/dashboard.php' : '/index.php');
+            }
         }
     }
 }

@@ -55,3 +55,8 @@ define('MAIL_FROM_NAME', APP_NAME);
 define('MAIL_REPLY_TO', $__smtpFrom ?: ('support@' . ($__mailHost ?: 'localhost')));
 
 define('LISTINGS_PER_PAGE', 18);
+
+// --- Rate Limiting Configuration ---
+define('RATE_LIMIT_MAX_ATTEMPTS', 5);           // Max failed attempts
+define('RATE_LIMIT_WINDOW', 900);              // Time window in seconds (15 minutes)
+define('RATE_LIMIT_LOCKOUT', 900);             // Lockout duration in seconds (15 minutes)
