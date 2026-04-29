@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $user = Database::fetchOne('SELECT * FROM users WHERE email = ?', [$email]);
 
         if (!$user || !verifyPassword($password, $user['password_hash'])) {
-            $error = 'Invalid email or password.';
+            $error = 'Wrong email or password.';
         } elseif ($user['is_banned']) {
             $error = 'Your account has been suspended. Contact admin.';
         } else {
