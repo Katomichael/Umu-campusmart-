@@ -90,9 +90,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             }
 
             if ($allowed) {
+              // Keep content non-null because the database column is NOT NULL.
+              // Image-only messages are stored with an empty string and the image path.
                 Database::insert(
                     'INSERT INTO messages (listing_id, sender_id, receiver_id, content, image_path) VALUES (?,?,?,?,?)',
-                    [$listingId, (int)$me['id'], $receiverId, $content ?: null, $imagePath]
+                [$listingId, (int)$me['id'], $receiverId, $content, $imagePath]
                 );
             } else {
                 flash('error', 'You are not allowed to message for this listing.');
@@ -593,7 +595,6 @@ include __DIR__ . '/../includes/header.php';
             <div class="chat-header-name"><?= e($otherUser['full_name'] ?? '') ?></div>
             <?php if ($listingData): ?>
               <div class="chat-header-listing">
-                <span>📦</span>
                 <span><?= e($listingData['title']) ?></span>
               </div>
             <?php endif; ?>
