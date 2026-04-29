@@ -5,32 +5,55 @@ requireLogin();
 $me = currentUser();
 $errors  = [];
 $success = getFlash('success');
+$action = trim((string)($_POST['_action'] ?? ''));
 
-// Save profile
+// Save profile or change password
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
-    $full_name     = trim($_POST['full_name']     ?? '');
-    $course        = trim($_POST['course']        ?? '');
-    $year_of_study = (int)($_POST['year_of_study']?? 1);
-    $phone         = trim($_POST['phone']         ?? '');
-    $bio           = trim($_POST['bio']           ?? '');
+    if ($action === 'change_password') {
+        // Change password form
+        $current_pass = $_POST['current_password'] ?? '';
+        $new_pass     = $_POST['new_password'] ?? '';
+        $confirm_pass = $_POST['confirm_password'] ?? '';
 
-    if (!$full_name) $errors[] = 'Full name is required.';
+        if (!verifyPassword($current_pass, $me['password_hash'])) {
+            $errors[] = 'Current password is incorrect.';
+        } elseif (strlen($new_pass) < 6) {
+            $errors[] = 'New password must be at least 6 characters.';
+        } elseif ($new_pass !== $confirm_pass) {
+            $errors[] = 'New passwords do not match.';
+        }
 
-    $avatar = null;
-    if (!empty($_FILES['avatar']['name'])) {
-        $avatar = uploadImage($_FILES['avatar'], 'avatars');
-        if (!$avatar) $errors[] = 'Invalid avatar image (max 5MB, jpg/png/gif/webp).';
-    }
+        if (!$errors) {
+            Database::query('UPDATE users SET password_hash=? WHERE id=?', [hashPassword($new_pass), $me['id']]);
+            flash('success', 'Password changed successfully!');
+            redirect('/pages/profile.php');
+        }
+    } else {
+        // Edit profile form (default)
+        $full_name     = trim($_POST['full_name']     ?? '');
+        $course        = trim($_POST['course']        ?? '');
+        $year_of_study = (int)($_POST['year_of_study']?? 1);
+        $phone         = trim($_POST['phone']         ?? '');
+        $bio           = trim($_POST['bio']           ?? '');
 
-    if (!$errors) {
-        $sql = 'UPDATE users SET full_name=?, course=?, year_of_study=?, phone=?, bio=?';
-        $p   = [$full_name, $course ?: null, $year_of_study, $phone ?: null, $bio ?: null];
-        if ($avatar) { $sql .= ', avatar=?'; $p[] = $avatar; }
-        $sql .= ' WHERE id=?';
-        $p[]  = $me['id'];
-        Database::query($sql, $p);
-        flash('success', 'Profile updated!');
-        redirect('/pages/profile.php');
+        if (!$full_name) $errors[] = 'Full name is required.';
+
+        $avatar = null;
+        if (!empty($_FILES['avatar']['name'])) {
+            $avatar = uploadImage($_FILES['avatar'], 'avatars');
+            if (!$avatar) $errors[] = 'Invalid avatar image (max 5MB, jpg/png/gif/webp).';
+        }
+
+        if (!$errors) {
+            $sql = 'UPDATE users SET full_name=?, course=?, year_of_study=?, phone=?, bio=?';
+            $p   = [$full_name, $course ?: null, $year_of_study, $phone ?: null, $bio ?: null];
+            if ($avatar) { $sql .= ', avatar=?'; $p[] = $avatar; }
+            $sql .= ' WHERE id=?';
+            $p[]  = $me['id'];
+            Database::query($sql, $p);
+            flash('success', 'Profile updated!');
+            redirect('/pages/profile.php');
+        }
     }
 }
 
@@ -100,6 +123,7 @@ include __DIR__ . '/../includes/header.php';
     <button class="tab-btn" data-tab="listings"> Listings (<?= count($myListings) ?>)</button>
     <button class="tab-btn" data-tab="reviews">Reviews (<?= count($myReviews) ?>)</button>
     <button class="tab-btn" data-tab="edit">Edit Profile</button>
+    <button class="tab-btn" data-tab="security">Security</button>
   </div>
 
   <!-- Listings tab -->
@@ -207,6 +231,31 @@ include __DIR__ . '/../includes/header.php';
           </div>
         </div>
         <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Security tab (Change Password) -->
+  <div id="tab-security" class="tab-pane">
+    <form method="POST" class="card" style="max-width:480px">
+      <div class="card-body">
+        <?= csrfField() ?>
+        <input type="hidden" name="_action" value="change_password">
+        <h3 style="font-size:16px;font-weight:700;margin-bottom:16px">Change Password</h3>
+        
+        <div class="form-group">
+          <label>Current Password *</label>
+          <input class="form-control" type="password" name="current_password" required>
+        </div>
+        <div class="form-group">
+          <label>New Password *</label>
+          <input class="form-control" type="password" name="new_password" placeholder="At least 6 characters" required>
+        </div>
+        <div class="form-group">
+          <label>Confirm New Password *</label>
+          <input class="form-control" type="password" name="confirm_password" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Update Password</button>
       </div>
     </form>
   </div>
