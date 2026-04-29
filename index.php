@@ -155,7 +155,7 @@ $featuredListings = Database::fetchAll(
      LIMIT 8"
 );
 
-// Fetch popular listings for continuous grid
+// Fetch popular listings for 4x4 grid (16 items)
 $popularListings = Database::fetchAll(
     "SELECT l.id, l.title, l.price, l.condition_type, l.view_count, l.is_featured, l.created_at,
             c.name AS cat_name, c.slug AS cat_slug,
@@ -169,7 +169,7 @@ $popularListings = Database::fetchAll(
      JOIN users u ON l.seller_id = u.id
      WHERE l.status = 'active'
      ORDER BY l.is_featured DESC, l.view_count DESC, l.created_at DESC
-     LIMIT 40"
+     LIMIT 16"
 );
 
 $pageTitle = 'Browse Listings';
@@ -556,7 +556,7 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
 
 .listings-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
     gap: 16px;
     padding: 24px;
 }
@@ -842,9 +842,9 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
         min-width: 0;
     }
     .listings-grid {
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        grid-template-columns: repeat(3, 1fr);
         padding: 16px;
-        gap: 16px;
+        gap: 12px;
     }
     .category-list a {
         font-size: 13px;
@@ -871,7 +871,21 @@ body.sidebar-collapsed .sidebar-toggle { display: inline-flex; }
     }
 }
 
+@media (max-width: 768px) {
+    .listings-grid {
+        grid-template-columns: repeat(2, 1fr);
+        padding: 12px;
+        gap: 12px;
+    }
+}
+
 @media (max-width: 480px) {
+    .listings-grid {
+        grid-template-columns: 1fr;
+        padding: 8px;
+        gap: 10px;
+    }
+
     .hero-section {
         padding: 28px 14px;
     }
