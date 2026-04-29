@@ -19,15 +19,26 @@ $where  = ['l.status = ?'];
 $params = ['active'];
 
 if ($search) {
-  // FULLTEXT may ignore very short tokens depending on MySQL config; fall back to LIKE.
-  if (strlen($search) < 3) {
-    $where[]  = '(l.title LIKE ? OR l.description LIKE ?)';
-    $params[] = '%' . $search . '%';
-    $params[] = '%' . $search . '%';
-  } else {
-    $where[]  = 'MATCH(l.title, l.description) AGAINST(? IN BOOLEAN MODE)';
-    $params[] = $search . '*';
+  // Use LIKE for reliable search (FULLTEXT index not working as expected)
+  // Also search for plural/singular variants to handle "jersey" vs "jerseys"
+  $searchTerms = [$search];
+  
+  // Add plural variant if search ends with 's'
+  if (substr($search, -1) === 's' && strlen($search) > 1) {
+    $searchTerms[] = substr($search, 0, -1); // Remove trailing 's'
   }
+  // Add singular variant if search doesn't end with 's'
+  elseif (substr($search, -1) !== 's') {
+    $searchTerms[] = $search . 's'; // Add 's'
+  }
+  
+  $termClauses = [];
+  foreach ($searchTerms as $term) {
+    $termClauses[] = '(l.title LIKE ? OR l.description LIKE ?)';
+    $params[] = '%' . $term . '%';
+    $params[] = '%' . $term . '%';
+  }
+  $where[] = '(' . implode(' OR ', $termClauses) . ')';
 }
 if ($catSlug) {
     $where[]  = 'c.slug = ?';
@@ -111,7 +122,10 @@ $listings = Database::fetchAll(
     "SELECT l.id, l.title, l.price, l.condition_type, l.view_count, l.is_featured, l.created_at,
             c.name AS cat_name, c.slug AS cat_slug,
             u.id AS seller_id, u.full_name AS seller_name, u.trust_score, u.avatar AS seller_avatar,
-            (SELECT image_path FROM listing_images WHERE listing_id=l.id AND is_primary=1 LIMIT 1) AS img
+            COALESCE(
+                (SELECT image_path FROM listing_images WHERE listing_id = l.id AND is_primary = 1 LIMIT 1),
+                (SELECT image_path FROM listing_images WHERE listing_id = l.id ORDER BY sort_order LIMIT 1)
+            ) AS img
      FROM listings l
      JOIN categories c ON l.category_id = c.id
      JOIN users u ON l.seller_id = u.id
@@ -146,7 +160,10 @@ $popularListings = Database::fetchAll(
     "SELECT l.id, l.title, l.price, l.condition_type, l.view_count, l.is_featured, l.created_at,
             c.name AS cat_name, c.slug AS cat_slug,
             u.id AS seller_id, u.full_name AS seller_name, u.trust_score, u.avatar AS seller_avatar,
-            (SELECT image_path FROM listing_images WHERE listing_id=l.id AND is_primary=1 LIMIT 1) AS img
+            COALESCE(
+                (SELECT image_path FROM listing_images WHERE listing_id = l.id AND is_primary = 1 LIMIT 1),
+                (SELECT image_path FROM listing_images WHERE listing_id = l.id ORDER BY sort_order LIMIT 1)
+            ) AS img
      FROM listings l
      JOIN categories c ON l.category_id = c.id
      JOIN users u ON l.seller_id = u.id
