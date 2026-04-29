@@ -37,10 +37,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     
     // Handle image upload
     $imagePath = null;
+    $uploadError = null;
+    
     if (!empty($_FILES['image']['name'])) {
-        $imagePath = uploadImage($_FILES['image'], 'messages');
-        if (!$imagePath) {
-            flash('error', 'Failed to upload image. Please make sure it is a valid image file (JPG, PNG, GIF, WebP) and under 5MB.');
+        // Check if file was actually uploaded without errors
+        if ($_FILES['image']['error'] !== UPLOAD_ERR_OK) {
+            $errorMap = [
+                UPLOAD_ERR_INI_SIZE   => 'File exceeds server maximum size',
+                UPLOAD_ERR_FORM_SIZE  => 'File exceeds form maximum size (5MB)',
+                UPLOAD_ERR_PARTIAL    => 'File was only partially uploaded',
+                UPLOAD_ERR_NO_FILE    => 'No file was uploaded',
+                UPLOAD_ERR_NO_TMP_DIR => 'Server upload temporary directory missing',
+                UPLOAD_ERR_CANT_WRITE => 'Cannot write to server upload directory',
+                UPLOAD_ERR_EXTENSION  => 'File type not allowed by server',
+            ];
+            $uploadError = $errorMap[$_FILES['image']['error']] ?? 'Unknown upload error';
+            flash('error', 'Image upload failed: ' . $uploadError);
+        } else {
+            $imagePath = uploadImage($_FILES['image'], 'messages');
+            if (!$imagePath) {
+                flash('error', 'Failed to upload image. Make sure it is a valid image file (JPG, PNG, GIF, WebP) under 5MB.');
+            }
         }
     }
 
@@ -676,54 +693,64 @@ include __DIR__ . '/../includes/header.php';
 
       <!-- Input -->
       <div class="chat-input-bar">
-        <form method="POST" enctype="multipart/form-data" style="display:flex;gap:10px;flex:1;align-items:flex-end">
+        <form method="POST" action="<?= APP_URL ?>/pages/messages.php" enctype="multipart/form-data" style="display:flex;gap:10px;flex:1;align-items:flex-end">
           <?= csrfField() ?>
-          <input type="hidden" name="listing_id"  value="<?= $activeListing ?>">
-          <input type="hidden" name="receiver_id" value="<?= $activeWith ?>">
+          <input type="hidden" name="listing_id"  value="<?= (int)$activeListing ?>">
+          <input type="hidden" name="receiver_id" value="<?= (int)$activeWith ?>">
           
           <div style="flex:1;display:flex;flex-direction:column;gap:6px">
             <textarea class="form-control" name="content" id="chat-input" rows="1"
-                      placeholder="Type a message…"
+                      placeholder="Type a message or attach an image…"
                       style="flex:1;resize:none"></textarea>
             
             <!-- Image input preview -->
-            <div id="image-preview" style="display:none;font-size:12px;color:var(--muted)">
-              📷 Image selected: <span id="image-name"></span>
-              <button type="button" onclick="clearImageSelect()" style="background:none;border:none;color:var(--danger);cursor:pointer;text-decoration:underline;margin-left:4px">Remove</button>
+            <div id="image-preview" style="display:none;font-size:12px;color:var(--muted);padding:4px 8px;background:rgba(0,0,0,0.02);border-radius:4px">
+              📷 Image selected: <span id="image-name" style="font-weight:600"></span>
+              <button type="button" onclick="clearImageSelect()" style="background:none;border:none;color:var(--danger);cursor:pointer;text-decoration:underline;margin-left:8px;font-size:11px">Remove</button>
             </div>
-            <input type="file" id="image-input" name="image" accept="image/*" style="display:none">
+            <input type="file" id="image-input" name="image" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none">
           </div>
           
-          <button type="button" class="btn btn-outline btn-send" title="Attach image" onclick="document.getElementById('image-input').click()" style="padding:10px 12px">
+          <button type="button" class="btn btn-outline btn-send" title="Attach image" onclick="document.getElementById('image-input').click()" style="padding:10px 12px;flex-shrink:0">
             <i class="fas fa-image"></i>
           </button>
-          <button type="submit" class="btn btn-primary btn-send" aria-label="Send message" title="Send (or press Enter)" style="padding:10px 16px">
+          <button type="submit" class="btn btn-primary btn-send" aria-label="Send message" title="Send (or Ctrl+Enter)" style="padding:10px 16px;flex-shrink:0">
             <i class="fas fa-paper-plane" aria-hidden="true"></i>
           </button>
         </form>
       </div>
       
       <script>
-      document.getElementById('image-input').addEventListener('change', function(e) {
-        if (this.files.length > 0) {
-          document.getElementById('image-name').textContent = this.files[0].name;
-          document.getElementById('image-preview').style.display = 'block';
-        } else {
+      (function() {
+        const imageInput = document.getElementById('image-input');
+        const chatInput = document.getElementById('chat-input');
+        
+        if (imageInput) {
+          imageInput.addEventListener('change', function(e) {
+            if (this.files && this.files.length > 0) {
+              const file = this.files[0];
+              document.getElementById('image-name').textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+              document.getElementById('image-preview').style.display = 'block';
+            } else {
+              document.getElementById('image-preview').style.display = 'none';
+            }
+          });
+        }
+        
+        window.clearImageSelect = function() {
+          if (imageInput) imageInput.value = '';
           document.getElementById('image-preview').style.display = 'none';
+        };
+        
+        // Allow Ctrl+Enter or Cmd+Enter to submit
+        if (chatInput) {
+          chatInput.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+              this.closest('form').submit();
+            }
+          });
         }
-      });
-      
-      function clearImageSelect() {
-        document.getElementById('image-input').value = '';
-        document.getElementById('image-preview').style.display = 'none';
-      }
-      
-      // Allow Ctrl+Enter or Cmd+Enter to submit
-      document.getElementById('chat-input').addEventListener('keydown', function(e) {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-          this.form.submit();
-        }
-      });
+      })();
       </script>
     <?php endif; ?>
   </div>
