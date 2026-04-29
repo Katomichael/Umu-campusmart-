@@ -53,7 +53,7 @@ $myReviews = Database::fetchAll(
     [$me['id']]
 );
 
-$pageTitle = 'My Profile';
+$pageTitle = $user['full_name'] . "'s Profile";
 include __DIR__ . '/../includes/header.php';
 ?>
 
@@ -68,7 +68,7 @@ include __DIR__ . '/../includes/header.php';
     </aside>
 
     <div style="flex:1;max-width:900px">
-      <h1 class="page-title"> Profile</h1>
+      <h1 class="page-title"><?= e($user['full_name']) ?>'s Profile</h1>
 
   <?php if ($success): ?><div class="alert alert-success"><?= e($success) ?></div><?php endif; ?>
   <?php foreach ($errors as $e): ?><div class="alert alert-danger"><?= e($e) ?></div><?php endforeach; ?>
