@@ -131,7 +131,10 @@ try {
 // Fetch featured products for banner carousel
 $featuredListings = Database::fetchAll(
     "SELECT l.id, l.title, l.price, l.is_featured,
-            (SELECT image_path FROM listing_images WHERE listing_id=l.id AND is_primary=1 LIMIT 1) AS img
+            COALESCE(
+                (SELECT image_path FROM listing_images WHERE listing_id = l.id AND is_primary = 1 LIMIT 1),
+                (SELECT image_path FROM listing_images WHERE listing_id = l.id ORDER BY sort_order LIMIT 1)
+            ) AS img
      FROM listings l
      WHERE l.status='active' AND l.is_featured=1
      ORDER BY l.view_count DESC
