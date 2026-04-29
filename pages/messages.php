@@ -34,8 +34,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     $content    = trim($_POST['content']     ?? '');
     $listingId  = (int)($_POST['listing_id']  ?? 0);
     $receiverId = (int)($_POST['receiver_id'] ?? 0);
+    
+    // Handle image upload
+    $imagePath = null;
+    if (!empty($_FILES['image']['name'])) {
+        $imagePath = uploadImage($_FILES['image'], 'messages');
+        if (!$imagePath) {
+            flash('error', 'Failed to upload image. Please make sure it is a valid image file (JPG, PNG, GIF, WebP) and under 5MB.');
+        }
+    }
 
-    if ($content && $listingId && $receiverId && $receiverId !== (int)$me['id']) {
+    if (($content || $imagePath) && $listingId && $receiverId && $receiverId !== (int)$me['id']) {
         $listingRow = Database::fetchOne('SELECT id, seller_id, status FROM listings WHERE id=?', [$listingId]);
         if (!$listingRow) {
             flash('error', 'Conversation not found.');
@@ -65,8 +74,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 
             if ($allowed) {
                 Database::insert(
-                    'INSERT INTO messages (listing_id, sender_id, receiver_id, content) VALUES (?,?,?,?)',
-                    [$listingId, (int)$me['id'], $receiverId, $content]
+                    'INSERT INTO messages (listing_id, sender_id, receiver_id, content, image_path) VALUES (?,?,?,?,?)',
+                    [$listingId, (int)$me['id'], $receiverId, $content ?: null, $imagePath]
                 );
             } else {
                 flash('error', 'You are not allowed to message for this listing.');
@@ -359,6 +368,18 @@ include __DIR__ . '/../includes/header.php';
     padding: 0 4px;
   }
   
+  .chat-shared-image {
+    transition: transform 0.2s ease;
+  }
+  
+  .chat-shared-image:hover {
+    transform: scale(1.02);
+  }
+  
+  .chat-image-link {
+    text-decoration: none;
+  }
+  
   .chat-bubble-sender {
     font-size: 12px;
     font-weight: 700;
@@ -605,9 +626,22 @@ include __DIR__ . '/../includes/header.php';
               <?php if (!$isMe): ?>
                 <div class="chat-bubble-sender"><?= e($msg['sender_name']) ?></div>
               <?php endif; ?>
-              <div class="chat-bubble-content">
-                <?= e($msg['content']) ?>
-              </div>
+              
+              <!-- Display shared image if exists -->
+              <?php if (!empty($msg['image_path'])): ?>
+                <a href="<?= APP_URL . '/public/' . e($msg['image_path']) ?>" target="_blank" class="chat-image-link">
+                  <img src="<?= APP_URL . '/public/' . e($msg['image_path']) ?>" alt="Shared image" 
+                       class="chat-shared-image" 
+                       style="max-width:280px;max-height:280px;border-radius:8px;cursor:pointer;margin-bottom:8px;display:block">
+                </a>
+              <?php endif; ?>
+              
+              <?php if (!empty($msg['content'])): ?>
+                <div class="chat-bubble-content">
+                  <?= e($msg['content']) ?>
+                </div>
+              <?php endif; ?>
+              
               <div class="chat-time">
                 <?= date('g:i A', strtotime($msg['created_at'])) ?>
               </div>
@@ -642,18 +676,55 @@ include __DIR__ . '/../includes/header.php';
 
       <!-- Input -->
       <div class="chat-input-bar">
-        <form method="POST" style="display:flex;gap:10px;flex:1">
+        <form method="POST" enctype="multipart/form-data" style="display:flex;gap:10px;flex:1;align-items:flex-end">
           <?= csrfField() ?>
           <input type="hidden" name="listing_id"  value="<?= $activeListing ?>">
           <input type="hidden" name="receiver_id" value="<?= $activeWith ?>">
-          <textarea class="form-control" name="content" id="chat-input" rows="1"
-                    placeholder="Type a message… (Enter to send)" required
-                    style="flex:1;resize:none"></textarea>
-          <button type="submit" class="btn btn-primary btn-send" aria-label="Send message" title="Send">
+          
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+            <textarea class="form-control" name="content" id="chat-input" rows="1"
+                      placeholder="Type a message…"
+                      style="flex:1;resize:none"></textarea>
+            
+            <!-- Image input preview -->
+            <div id="image-preview" style="display:none;font-size:12px;color:var(--muted)">
+              📷 Image selected: <span id="image-name"></span>
+              <button type="button" onclick="clearImageSelect()" style="background:none;border:none;color:var(--danger);cursor:pointer;text-decoration:underline;margin-left:4px">Remove</button>
+            </div>
+            <input type="file" id="image-input" name="image" accept="image/*" style="display:none">
+          </div>
+          
+          <button type="button" class="btn btn-outline btn-send" title="Attach image" onclick="document.getElementById('image-input').click()" style="padding:10px 12px">
+            <i class="fas fa-image"></i>
+          </button>
+          <button type="submit" class="btn btn-primary btn-send" aria-label="Send message" title="Send (or press Enter)" style="padding:10px 16px">
             <i class="fas fa-paper-plane" aria-hidden="true"></i>
           </button>
         </form>
       </div>
+      
+      <script>
+      document.getElementById('image-input').addEventListener('change', function(e) {
+        if (this.files.length > 0) {
+          document.getElementById('image-name').textContent = this.files[0].name;
+          document.getElementById('image-preview').style.display = 'block';
+        } else {
+          document.getElementById('image-preview').style.display = 'none';
+        }
+      });
+      
+      function clearImageSelect() {
+        document.getElementById('image-input').value = '';
+        document.getElementById('image-preview').style.display = 'none';
+      }
+      
+      // Allow Ctrl+Enter or Cmd+Enter to submit
+      document.getElementById('chat-input').addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          this.form.submit();
+        }
+      });
+      </script>
     <?php endif; ?>
   </div>
 
